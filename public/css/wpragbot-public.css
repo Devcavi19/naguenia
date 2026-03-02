@@ -1,0 +1,230 @@
+/**
+ * The public-facing CSS file for the plugin.
+ *
+ * This file is used to style the public-facing side of the plugin.
+ *
+ * @link       https://example.com
+ * @since      1.0.0
+ * @package    Wpragbot
+ * @subpackage Wpragbot/public/css
+ */
+
+/* Chat widget styles */
+.wpragbot-chat-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 350px;
+    height: 500px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: flex;
+    flex-direction: column;
+    z-index: 9999;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+}
+
+.wpragbot-chat-header {
+    background: #4a6fa5;
+    color: white;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+    user-select: none;
+}
+
+.wpragbot-chat-title {
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.wpragbot-chat-close {
+    cursor: pointer;
+    font-size: 24px;
+    line-height: 1;
+}
+
+.wpragbot-chat-messages {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    background: #f9f9f9;
+}
+
+.wpragbot-message {
+    margin-bottom: 15px;
+    padding: 10px 15px;
+    border-radius: 18px;
+    max-width: 80%;
+    word-wrap: break-word;
+    line-height: 1.4;
+    font-size: 13px;
+}
+
+.wpragbot-user-message {
+    background: #4a6fa5;
+    color: white;
+    margin-left: auto;
+    text-align: right;
+}
+
+.wpragbot-bot-message {
+    background: #e9ecef;
+    color: #333;
+}
+
+/* Markdown formatting styles */
+.wpragbot-bot-message strong {
+    font-weight: bold;
+    color: #000;
+}
+
+.wpragbot-bot-message em {
+    font-style: italic;
+}
+
+.wpragbot-bot-message code {
+    background: #f4f4f4;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #c7254e;
+}
+
+.wpragbot-bot-message ul {
+    margin: 8px 0;
+    padding-left: 20px;
+    list-style-type: disc;
+}
+
+.wpragbot-bot-message li {
+    margin: 4px 0;
+    line-height: 1.5;
+}
+
+.wpragbot-bot-message h1,
+.wpragbot-bot-message h2,
+.wpragbot-bot-message h3 {
+    margin: 10px 0 5px 0;
+    font-weight: bold;
+    line-height: 1.3;
+}
+
+.wpragbot-bot-message h1 {
+    font-size: 16px;
+}
+
+.wpragbot-bot-message h2 {
+    font-size: 15px;
+}
+
+.wpragbot-bot-message h3 {
+    font-size: 14px;
+}
+
+.wpragbot-bot-message a {
+    color: #4a6fa5;
+    text-decoration: underline;
+}
+
+.wpragbot-bot-message a:hover {
+    color: #3a5a80;
+}
+
+.wpragbot-chat-input-area {
+    display: flex;
+    padding: 10px;
+    border-top: 1px solid #ddd;
+    background: #fff;
+}
+
+.wpragbot-chat-input-area input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    outline: none;
+    font-size: 14px;
+}
+
+.wpragbot-chat-input-area button {
+    margin-left: 10px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 20px;
+    background: #4a6fa5;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.wpragbot-chat-input-area button:hover {
+    background: #3a5a80;
+}
+
+.wpragbot-chat-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    background: #4a6fa5;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9998;
+    transition: transform 0.2s;
+}
+
+.wpragbot-chat-toggle:hover {
+    transform: scale(1.1);
+}
+
+.wpragbot-chat-icon {
+    font-size: 24px;
+    color: white;
+}
+
+/* Loading animation */
+.wpragbot-loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #4a6fa5;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    vertical-align: middle;
+    margin-right: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .wpragbot-chat-container {
+        width: 90%;
+        height: 80%;
+        bottom: 10px;
+        right: 10px;
+    }
+
+    .wpragbot-chat-toggle {
+        bottom: 10px;
+        right: 10px;
+        width: 50px;
+        height: 50px;
+    }
+}

@@ -1,0 +1,143 @@
+/**
+ * The admin-specific CSS file for the plugin.
+ *
+ * This file is used to style the admin area of the plugin.
+ *
+ * @link       https://example.com
+ * @since      1.0.0
+ * @package    Wpragbot
+ * @subpackage Wpragbot/admin/css
+ */
+
+/* General styles for the admin interface */
+.wpragbot-settings-page {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.wpragbot-settings-page h1 {
+    color: #333;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+}
+
+.wpragbot-settings-page .postbox {
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.wpragbot-settings-page .postbox h3 {
+    background: #f5f5f5;
+    padding: 10px 15px;
+    margin: 0;
+    border-bottom: 1px solid #ddd;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.wpragbot-settings-page .postbox .inside {
+    padding: 15px;
+}
+
+.wpragbot-settings-page .form-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+}
+
+.wpragbot-settings-page .form-table th,
+.wpragbot-settings-page .form-table td {
+    padding: 10px;
+    vertical-align: top;
+    border-bottom: 1px solid #eee;
+}
+
+.wpragbot-settings-page .form-table th {
+    width: 200px;
+    font-weight: 600;
+    color: #333;
+}
+
+.wpragbot-settings-page .form-table .description {
+    font-size: 13px;
+    color: #666;
+    margin-top: 5px;
+}
+
+.wpragbot-settings-page input[type="text"],
+.wpragbot-settings-page input[type="password"],
+.wpragbot-settings-page input[type="url"],
+.wpragbot-settings-page textarea {
+    width: 100%;
+    max-width: 500px;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.wpragbot-settings-page textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.wpragbot-settings-page .submit {
+    margin-top: 20px;
+}
+
+/* Knowledge base management styles */
+.wpragbot-knowledge-base {
+    margin-top: 30px;
+}
+
+.wpragbot-knowledge-base h2 {
+    margin-top: 30px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+}
+
+.wpragbot-upload-form {
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+
+.wpragbot-upload-form table {
+    width: 100%;
+}
+
+.wpragbot-upload-form td {
+    padding: 10px 0;
+}
+
+.wpragbot-upload-form input[type="file"] {
+    width: 100%;
+    max-width: 500px;
+}
+
+/* Analytics dashboard styles */
+.wpragbot-analytics {
+    margin-top: 30px;
+}
+
+.wpragbot-analytics .chart-placeholder {
+    background: #f0f0f0;
+    border: 1px dashed #ccc;
+    border-radius: 5px;
+    padding: 40px;
+    text-align: center;
+    color: #666;
+}
+
+.wpragbot-analytics .chart-placeholder p {
+    margin: 0;
+}
