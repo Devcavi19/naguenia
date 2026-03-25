@@ -516,7 +516,7 @@ class Wpragbot_API {
                 break;
             case 'mistral':
                 $body = array(
-                    'model' => 'mistral-embed',
+                    'model' => 'mistral-small-4-0-26-03',
                     'messages' => array(
                         array(
                             'role' => 'system',
@@ -529,6 +529,7 @@ class Wpragbot_API {
                     ),
                     'temperature' => 0.7,
                     'max_tokens' => 8192,
+                    'reasoning_effort' => 'high',
                 );
                 break;
             case 'openai':
