@@ -8,23 +8,211 @@
  * @link       https://example.com
  * @since      1.0.0
  * @package    Wpragbot
- */
-
-/**
- * The API integration functionality.
- *
- * Handles communication with Gemini and Qdrant services for RAG implementation.
- *
- * @since      1.0.0
- * @package    Wpragbot
  * @author     Your Name <email@example.com>
  */
 class Wpragbot_API {
 
+
+
+    /**
+     * Construct context from relevant documents.
+     *
+     * @since    1.0.0
+     * @param    array    $documents    Relevant documents
+     * @return   string                 Concatenated context string
+     */
+    private function construct_context($documents) {
+        if (empty($documents) || !is_array($documents)) {
+            return '';
+        }
+        $context = '';
+        foreach ($documents as $doc) {
+            if (!empty($doc['content'])) {
+                $context .= $doc['content'] . "\n\n";
+            }
+        }
+        return trim($context);
+    }
+
+    /**
+     * Generate response using selected AI provider with context.
+     *
+     * @since    1.0.0
+     * @param    string    $user_message     The user's message
+     * @param    string    $context          The context from relevant documents
+     * @param    string    $api_key          The API key for the AI provider
+     * @param    string    $ai_provider      The AI provider to use (mistral, openai, etc.)
+     * @param    string    $system_prompt    The system prompt to use
+     * @param    string    $collection_name  The collection name for reference
+     * @return   string|WP_Error             Generated response or error
+     */
+    public function generate_response($user_message, $context, $api_key, $ai_provider, $system_prompt = '', $collection_name = '') {
+        try {
+            // Validate inputs
+            if (empty($user_message)) {
+                return new WP_Error('empty_message', 'User message cannot be empty');
+            }
+
+            if (empty($ai_provider)) {
+                return new WP_Error('missing_provider', 'AI provider is required');
+            }
+
+            // Prepare the conversation history
+            $messages = array();
+
+            // Add system prompt if provided
+            if (!empty($system_prompt)) {
+                $messages[] = array(
+                    'role' => 'system',
+                    'content' => $system_prompt
+                );
+            }
+
+            // Add context and user message
+            $context_message = '';
+            if (!empty($context)) {
+                $context_message = "Context information:\n" . $context . "\n\n";
+            }
+            
+            $messages[] = array(
+                'role' => 'user',
+                'content' => $context_message . "User question: " . $user_message
+            );
+
+            // Select endpoint based on AI provider
+            $endpoint = '';
+            $headers = array(
+                'Content-Type' => 'application/json',
+            );
+
+            switch (strtolower($ai_provider)) {
+                case 'mistral':
+                    $endpoint = $this->mistral_generate_endpoint;
+                    if (!empty($api_key)) {
+                        $headers['Authorization'] = 'Bearer ' . $api_key;
+                    }
+                    break;
+                case 'openai':
+                    $endpoint = $this->openai_generate_endpoint;
+                    if (!empty($api_key)) {
+                        $headers['Authorization'] = 'Bearer ' . $api_key;
+                    }
+                    break;
+                case 'openrouter':
+                    $endpoint = $this->openrouter_generate_endpoint;
+                    if (!empty($api_key)) {
+                        $headers['Authorization'] = 'Bearer ' . $api_key;
+                    }
+                    break;
+                case 'gemini':
+                    $endpoint = $this->gemini_generate_endpoint;
+                    if (!empty($api_key)) {
+                        $headers['x-api-key'] = $api_key;
+                    }
+                    break;
+                default:
+                    return new WP_Error('unsupported_provider', 'Unsupported AI provider: ' . $ai_provider);
+            }
+
+            // Prepare request body
+            $body = array(
+                'model' => $this->get_model_name($ai_provider),
+                'messages' => $messages,
+                'temperature' => 0.7,
+                'max_tokens' => 1024,
+            );
+
+            // Add streaming support for some providers
+            if (strtolower($ai_provider) === 'openrouter') {
+                $body['stream'] = false;
+            }
+
+            // Make the API request
+            $response = wp_remote_post($endpoint, array(
+                'timeout' => $this->timeout,
+                'headers' => $headers,
+                'body' => wp_json_encode($body),
+            ));
+
+            if (is_wp_error($response)) {
+                error_log('WPRAGBot: AI API request failed: ' . $response->get_error_message());
+                return new WP_Error('ai_request_failed', 'Failed to connect to AI provider: ' . $response->get_error_message());
+            }
+
+            $response_code = wp_remote_retrieve_response_code($response);
+            $response_body = wp_remote_retrieve_body($response);
+
+            if ($response_code !== 200) {
+                $error_data = json_decode($response_body, true);
+                $error_message = isset($error_data['error']['message']) ? $error_data['error']['message'] : 'Unknown error';
+                error_log('WPRAGBot: AI API error (code ' . $response_code . '): ' . $error_message);
+                return new WP_Error('ai_api_error', 'AI API error: ' . $error_message, array('status' => $response_code));
+            }
+
+            // Parse the response based on provider
+            $data = json_decode($response_body, true);
+            
+            if (!isset($data['choices']) || !is_array($data['choices']) || empty($data['choices'])) {
+                error_log('WPRAGBot: Invalid AI API response structure: ' . substr($response_body, 0, 200));
+                return new WP_Error('invalid_ai_response', 'Invalid response from AI provider');
+            }
+
+            // Extract the response text
+            $response_text = '';
+            if (isset($data['choices'][0]['message']['content'])) {
+                $response_text = $data['choices'][0]['message']['content'];
+            } elseif (isset($data['choices'][0]['delta']['content'])) {
+                // For streaming responses
+                $response_text = $data['choices'][0]['delta']['content'];
+            }
+
+            if (empty($response_text)) {
+                error_log('WPRAGBot: Empty response from AI provider');
+                return new WP_Error('empty_response', 'Empty response from AI provider');
+            }
+
+            return trim($response_text);
+
+        } catch (Exception $e) {
+            error_log('WPRAGBot: Exception in generate_response: ' . $e->getMessage());
+            return new WP_Error('api_error', 'Error generating response: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get the appropriate model name for the AI provider.
+     *
+     * @since    1.0.0
+     * @param    string    $ai_provider      The AI provider to use
+     * @return   string                      The model name
+     */
+    private function get_model_name($ai_provider) {
+        switch (strtolower($ai_provider)) {
+            case 'mistral':
+                return 'mistral-7b-instruct-v0.2';
+            case 'openai':
+                return 'gpt-3.5-turbo';
+            case 'openrouter':
+                return 'openai/gpt-3.5-turbo';
+            case 'gemini':
+                return 'gemini-1.5-flash';
+            default:
+                return 'gpt-3.5-turbo';
+        }
+    }
+
+
+    /**
+     * Generate embedding for text using the Hugging Face All-MiniLM-L6-v2 endpoint only.
+     *
+     * @since    1.0.0
+     * @param    string    $text           Text to embed
+     * @return   array|WP_Error            Embedding array or error
+     */
+
     /**
      * AI Provider endpoints
      */
-    private $embedding_endpoint = 'https://devcavi19-hf-all-minilm-l6-v2-wp-api.hf.space/embed';
     private $gemini_embedding_endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent';
     private $gemini_generate_endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
     private $openrouter_embedding_endpoint = 'https://openrouter.ai/api/v1/embeddings';
@@ -118,137 +306,6 @@ class Wpragbot_API {
         }
     }
 
-    /** 
-     * Generate embedding for text using selected AI provider.
-     *
-     * @since    1.0.0
-     * @param    string    $text           Text to embed
-     * @param    string    $api_key        API key for selected provider
-     * @param    string    $provider       Selected AI provider
-     * @param    string    $task_type      Task type (retrieval_document or retrieval_query)
-     * @return   array|WP_Error            Embedding array or error
-     */
-    private function generate_embedding($text, $api_key, $provider = 'gemini', $task_type = 'retrieval_document') {
-        if (empty($api_key)) {
-            return new WP_Error('missing_api_key', 'API key is required');
-        }
-
-        if (empty($text)) {
-            return new WP_Error('empty_text', 'Text to embed cannot be empty');
-        }
-
-        // Select endpoint based on provider
-        $url = $this->embedding_endpoint; // Default to all-MiniLM-L6-v2
-        $headers = array(
-            'Content-Type' => 'application/json',
-        );
-        
-        // Set up provider-specific endpoints and headers
-        switch ($provider) {
-            case 'gemini':
-                $url = $this->gemini_embedding_endpoint . '?key=' . $api_key;
-                break;
-            case 'openrouter':
-                $url = $this->openrouter_embedding_endpoint;
-                $headers['Authorization'] = 'Bearer ' . $api_key;
-                break;
-            case 'mistral':
-                $url = $this->mistral_embedding_endpoint;
-                $headers['Authorization'] = 'Bearer ' . $api_key;
-                break;
-            case 'openai':
-                $url = $this->openai_embedding_endpoint;
-                $headers['Authorization'] = 'Bearer ' . $api_key;
-                break;
-            default:
-                // Default to all-MiniLM-L6-v2
-                break;
-        }
-
-        $body = array(
-            'input' => $text,
-            'model' => 'all-MiniLM-L6-v2' // For all-MiniLM-L6-v2
-        );
-
-        // Adjust body for different providers
-        switch ($provider) {
-            case 'gemini':
-                $body = array(
-                    'content' => array(
-                        'parts' => array(
-                            array('text' => $text)
-                        )
-                    ),
-                    'task_type' => $task_type,
-                    'output_dimensionality' => 768
-                );
-                break;
-            case 'openrouter':
-                $body = array(
-                    'input' => $text,
-                    'model' => 'all-MiniLM-L6-v2'
-                );
-                break;
-            case 'mistral':
-                $body = array(
-                    'input' => $text,
-                    'model' => 'all-MiniLM-L6-v2'
-                );
-                break;
-            case 'openai':
-                $body = array(
-                    'input' => $text,
-                    'model' => 'text-embedding-3-small'
-                );
-                break;
-            default:
-                // Default to all-MiniLM-L6-v2
-                break;
-        }
-
-        $response = wp_remote_post($url, array(
-            'timeout' => $this->timeout,
-            'headers' => $headers,
-            'body' => wp_json_encode($body),
-        ));
-
-        if (is_wp_error($response)) {
-            return new WP_Error('embedding_request_failed', 'Failed to connect to AI provider: ' . $response->get_error_message());
-        }
-
-        $response_code = wp_remote_retrieve_response_code($response);
-        $response_body = wp_remote_retrieve_body($response);
-
-        if ($response_code !== 200) {
-            $error_data = json_decode($response_body, true);
-            $error_message = isset($error_data['error']['message']) ? $error_data['error']['message'] : 'Unknown error';
-            return new WP_Error('embedding_api_error', 'AI provider error: ' . $error_message, array('status' => $response_code));
-        }
-
-        $data = json_decode($response_body, true);
-
-        // Handle different response formats
-        switch ($provider) {
-            case 'gemini':
-                if (!isset($data['embedding']['values'])) {
-                    return new WP_Error('invalid_response', 'Invalid response from AI provider');
-                }
-                return $data['embedding']['values'];
-            case 'openrouter':
-            case 'mistral':
-            case 'openai':
-            case 'all-minilm':
-                if (!isset($data['data'][0]['embedding'])) {
-                    return new WP_Error('invalid_response', 'Invalid response from AI provider');
-                }
-                return $data['data'][0]['embedding'];
-            default:
-                if (!isset($data['data'][0]['embedding'])) {
-                    return new WP_Error('invalid_response', 'Invalid response from AI provider');
-                }
-                return $data['data'][0]['embedding'];
-        }
-    }
 
     /**
      * Search for relevant documents in Qdrant.
@@ -375,377 +432,27 @@ class Wpragbot_API {
      *
      * @since    1.0.0
      * @param    array    $documents    Relevant documents
-     * @return   string                 Constructed context
-     */
-    private function construct_context($documents) {
-        $context_parts = array();
-        foreach ($documents as $doc) {
-            $context_parts[] = $doc['content'];
-        }
-        return implode("\n\n", $context_parts);
-    }
-
-    /** 
-     * Generate response using selected AI provider with context.
-     *
-     * @since    1.0.0
-     * @param    string    $message        User message
-     * @param    string    $context        Retrieved context
-     * @param    string    $api_key        API key for selected provider
-     * @param    string    $provider       Selected AI provider
-     * @param    string    $system_prompt  System prompt
-     * @param    string    $collection_name Collection name for variable replacement
-     * @return   string|WP_Error           Generated response or error
-     */
-    private function generate_response($message, $context, $api_key, $provider, $system_prompt, $collection_name = '') {
-        if (empty($api_key)) {
-            return new WP_Error('missing_api_key', 'API key is required');
-        }
-
-        if (empty($message)) {
-            return new WP_Error('empty_message', 'User message cannot be empty');
-        }
-
-        // Select endpoint based on provider
-        $url = $this->gemini_generate_endpoint . '?key=' . $api_key; // Default to Gemini
-        $headers = array(
-            'Content-Type' => 'application/json',
-        );
-        
-        // Set up provider-specific endpoints and headers
-        switch ($provider) {
-            case 'gemini':
-                $url = $this->gemini_generate_endpoint . '?key=' . $api_key;
-                break;
-            case 'openrouter':
-                $url = $this->openrouter_generate_endpoint;
-                $headers['Authorization'] = 'Bearer ' . $api_key;
-                $headers['HTTP-Referer'] = get_site_url();
-                $headers['X-Title'] = 'WPRAGBot';
-                break;
-            case 'mistral':
-                $url = $this->mistral_generate_endpoint;
-                $headers['Authorization'] = 'Bearer ' . $api_key;
-                break;
-            case 'openai':
-                $url = $this->openai_generate_endpoint;
-                $headers['Authorization'] = 'Bearer ' . $api_key;
-                break;
-            default:
-                // Default to Gemini
-                $url = $this->gemini_generate_endpoint . '?key=' . $api_key;
-                break;
-        }
-
-        // Construct the prompt with context
-        $default_system_prompt = 'You are a helpful AI assistant. Use the provided context to answer questions accurately and COMPLETELY. Always finish your sentences and provide thorough, complete answers. Never cut off your response mid-sentence. If the context doesn\'t contain relevant information, say so clearly. IMPORTANT: Format all responses using proper Markdown syntax: use **bold** for emphasis, bullet points with - or *, numbered lists with 1. 2. 3., and `code` for technical terms. Always structure information with clear headers and bullet points for easy reading.';
-        $system_prompt = !empty($system_prompt) ? $system_prompt : $default_system_prompt;
-
-        // Replace variables in system prompt
-        if (!empty($collection_name)) {
-            $system_prompt = str_replace('{$collection_name}', $collection_name, $system_prompt);
-        }
-
-        $full_prompt = $system_prompt . "\n\n";
-        
-        if (!empty($context)) {
-            $full_prompt .= "Context:\n" . $context . "\n\n";
-        } else {
-            // Log when context is empty for debugging
-            error_log('WPRAGBot: No context retrieved from Qdrant for query: ' . substr($message, 0, 50));
-        }
-        
-        $full_prompt .= "User Question: " . $message . "\n\nAssistant:";
-
-        // Prepare body for different providers
-        $body = array();
-        
-        switch ($provider) {
-            case 'gemini':
-                $body = array(
-                    'contents' => array(
-                        array(
-                            'parts' => array(
-                                array('text' => $full_prompt)
-                            )
-                        )
-                    ),
-                    'generationConfig' => array(
-                        'temperature' => 0.7,
-                        'topK' => 40,
-                        'topP' => 0.95,
-                        'maxOutputTokens' => 8192,
-                        'stopSequences' => array(),
-                    ),
-                    'safetySettings' => array(
-                        array(
-                            'category' => 'HARM_CATEGORY_HARASSMENT',
-                            'threshold' => 'BLOCK_NONE'
-                        ),
-                        array(
-                            'category' => 'HARM_CATEGORY_HATE_SPEECH',
-                            'threshold' => 'BLOCK_NONE'
-                        ),
-                        array(
-                            'category' => 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-                            'threshold' => 'BLOCK_NONE'
-                        ),
-                        array(
-                            'category' => 'HARM_CATEGORY_DANGEROUS_CONTENT',
-                            'threshold' => 'BLOCK_NONE'
-                        )
-                    ),
-                );
-                break;
-            case 'openrouter':
-                $body = array(
-                    'model' => 'google/gemini-1.5-flash',
-                    'messages' => array(
-                        array(
-                            'role' => 'system',
-                            'content' => $system_prompt
-                        ),
-                        array(
-                            'role' => 'user',
-                            'content' => $full_prompt
-                        )
-                    ),
-                    'temperature' => 0.7,
-                    'max_tokens' => 8192,
-                );
-                break;
-            case 'mistral':
-                $body = array(
-                    'model' => 'mistral-small-4-0-26-03',
-                    'messages' => array(
-                        array(
-                            'role' => 'system',
-                            'content' => $system_prompt
-                        ),
-                        array(
-                            'role' => 'user',
-                            'content' => $full_prompt
-                        )
-                    ),
-                    'temperature' => 0.7,
-                    'max_tokens' => 8192,
-                    'reasoning_effort' => 'high',
-                );
-                break;
-            case 'openai':
-                $body = array(
-                    'model' => 'gpt-3.5-turbo',
-                    'messages' => array(
-                        array(
-                            'role' => 'system',
-                            'content' => $system_prompt
-                        ),
-                        array(
-                            'role' => 'user',
-                            'content' => $full_prompt
-                        )
-                    ),
-                    'temperature' => 0.7,
-                    'max_tokens' => 8192,
-                );
-                break;
-            default:
-                // Default to Gemini
-                $body = array(
-                    'contents' => array(
-                        array(
-                            'parts' => array(
-                                array('text' => $full_prompt)
-                            )
-                        )
-                    ),
-                    'generationConfig' => array(
-                        'temperature' => 0.7,
-                        'topK' => 40,
-                        'topP' => 0.95,
-                        'maxOutputTokens' => 8192,
-                        'stopSequences' => array(),
-                    ),
-                    'safetySettings' => array(
-                        array(
-                            'category' => 'HARM_CATEGORY_HARASSMENT',
-                            'threshold' => 'BLOCK_NONE'
-                        ),
-                        array(
-                            'category' => 'HARM_CATEGORY_HATE_SPEECH',
-                            'threshold' => 'BLOCK_NONE'
-                        ),
-                        array(
-                            'category' => 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-                            'threshold' => 'BLOCK_NONE'
-                        ),
-                        array(
-                            'category' => 'HARM_CATEGORY_DANGEROUS_CONTENT',
-                            'threshold' => 'BLOCK_NONE'
-                        )
-                    ),
-                );
-                break;
-        }
-
-        $response = wp_remote_post($url, array(
-            'timeout' => $this->timeout,
-            'headers' => $headers,
-            'body' => wp_json_encode($body),
-        ));
-
-        if (is_wp_error($response)) {
-            error_log('WPRAGBot: Failed to connect to AI provider: ' . $response->get_error_message());
-            return new WP_Error('generation_request_failed', 'Failed to connect to AI provider: ' . $response->get_error_message());
-        }
-
-        $response_code = wp_remote_retrieve_response_code($response);
-        $response_body = wp_remote_retrieve_body($response);
-
-        error_log('WPRAGBot: AI provider response code: ' . $response_code);
-        error_log('WPRAGBot: Response body length: ' . strlen($response_body) . ' bytes');
-
-        if ($response_code !== 200) {
-            $error_data = json_decode($response_body, true);
-            $error_message = isset($error_data['error']['message']) ? $error_data['error']['message'] : 'Unknown error';
-            error_log('WPRAGBot: AI provider error: ' . $error_message);
-            return new WP_Error('generation_api_error', 'AI provider error: ' . $error_message, array('status' => $response_code));
-        }
-
-        $data = json_decode($response_body, true);
-
-        // Handle different response formats
-        switch ($provider) {
-            case 'gemini':
-                if (!isset($data['candidates'][0]['content']['parts'][0]['text'])) {
-                    error_log('WPRAGBot: Invalid response structure from AI provider');
-                    error_log('WPRAGBot: Response data: ' . print_r($data, true));
-                    
-                    // Check for finish reason that might indicate truncation
-                    if (isset($data['candidates'][0]['finishReason'])) {
-                        error_log('WPRAGBot: Finish reason: ' . $data['candidates'][0]['finishReason']);
-                    }
-                    
-                    return new WP_Error('invalid_generation_response', 'Invalid response from AI provider');
-                }
-
-                $generated_text = $data['candidates'][0]['content']['parts'][0]['text'];
-                $finish_reason = isset($data['candidates'][0]['finishReason']) ? $data['candidates'][0]['finishReason'] : 'UNKNOWN';
-                
-                error_log('WPRAGBot: Generated response length: ' . strlen($generated_text) . ' characters');
-                error_log('WPRAGBot: Finish reason: ' . $finish_reason);
-                
-                // Check if response was truncated
-                if ($finish_reason === 'MAX_TOKENS') {
-                    error_log('WPRAGBot: WARNING - Response may be truncated due to token limit');
-                }
-
-                return $generated_text;
-            case 'openrouter':
-            case 'mistral':
-            case 'openai':
-                if (!isset($data['choices'][0]['message']['content'])) {
-                    return new WP_Error('invalid_generation_response', 'Invalid response from AI provider');
-                }
-                return $data['choices'][0]['message']['content'];
-            default:
-                if (!isset($data['candidates'][0]['content']['parts'][0]['text'])) {
-                    error_log('WPRAGBot: Invalid response structure from AI provider');
-                    error_log('WPRAGBot: Response data: ' . print_r($data, true));
-                    
-                    // Check for finish reason that might indicate truncation
-                    if (isset($data['candidates'][0]['finishReason'])) {
-                        error_log('WPRAGBot: Finish reason: ' . $data['candidates'][0]['finishReason']);
-                    }
-                    
-                    return new WP_Error('invalid_generation_response', 'Invalid response from AI provider');
-                }
-
-                $generated_text = $data['candidates'][0]['content']['parts'][0]['text'];
-                $finish_reason = isset($data['candidates'][0]['finishReason']) ? $data['candidates'][0]['finishReason'] : 'UNKNOWN';
-                
-                error_log('WPRAGBot: Generated response length: ' . strlen($generated_text) . ' characters');
-                error_log('WPRAGBot: Finish reason: ' . $finish_reason);
-                
-                // Check if response was truncated
-                if ($finish_reason === 'MAX_TOKENS') {
-                    error_log('WPRAGBot: WARNING - Response may be truncated due to token limit');
-                }
-
-                return $generated_text;
-        }
-    }
-
     /**
-     * Process document for knowledge base.
+     * Generate embedding for text using the Hugging Face All-MiniLM-L6-v2 endpoint only.
      *
      * @since    1.0.0
-     * @param    string    $content        Document content
-     * @param    array     $settings       Plugin settings
-     * @return   array|WP_Error            Processed document data or error
+     * @param    string    $text           Text to embed
+     * @return   array|WP_Error            Embedding array or error
      */
-    public function process_document($content, $settings) {
-        try {
-            // Split content into chunks
-            $chunks = $this->chunk_content($content);
-
-            if (empty($chunks)) {
-                return new WP_Error('empty_content', 'Document content is empty');
-            }
-
-            // Generate embeddings for each chunk and upload to Qdrant
-            $points = array();
-            $chunk_id = 1;
-
-            foreach ($chunks as $chunk) {
-                // Generate embedding
-                $embedding = $this->generate_embedding($chunk, $settings['gemini_api_key'], 'retrieval_document');
-                
-                if (is_wp_error($embedding)) {
-                    error_log('WPRAGBot: Failed to generate embedding for chunk ' . $chunk_id . ': ' . $embedding->get_error_message());
-                    continue;
-                }
-
-                // Prepare point for Qdrant
-                $points[] = array(
-                    'id' => uniqid('doc_' . time() . '_'),
-                    'vector' => $embedding,
-                    'payload' => array(
-                        'content' => $chunk,
-                        'chunk_id' => $chunk_id,
-                        'timestamp' => current_time('mysql'),
-                    )
-                );
-
-                $chunk_id++;
-            }
-
-            if (empty($points)) {
-                return new WP_Error('no_embeddings', 'Failed to generate embeddings for document');
-            }
-
-            // Upload points to Qdrant
-            $upload_result = $this->upload_to_qdrant(
-                $points,
-                $settings['qdrant_url'],
-                $settings['collection_name'],
-                $settings['qdrant_api_key']
-            );
-
-            if (is_wp_error($upload_result)) {
-                return $upload_result;
-            }
-
-            return array(
-                'success' => true,
-                'chunks' => count($chunks),
-                'embeddings' => count($points),
-                'uploaded' => $upload_result['uploaded'],
-            );
-
-        } catch (Exception $e) {
-            return new WP_Error('document_error', 'Error processing document: ' . $e->getMessage());
+    private function generate_embedding($text) {
+        if (empty($text)) {
+            return new WP_Error('empty_text', 'Text to embed cannot be empty');
         }
+        // Always use the Hugging Face embedding class
+        if (!class_exists('Wpragbot_Embedding')) {
+            require_once plugin_dir_path(__FILE__) . 'class-wpragbot-embedding.php';
+        }
+        $embedding_handler = new Wpragbot_Embedding();
+        $embedding = $embedding_handler->generate_embedding($text);
+        if (is_wp_error($embedding)) {
+            return $embedding;
+        }
+        return $embedding;
     }
 
     /**
