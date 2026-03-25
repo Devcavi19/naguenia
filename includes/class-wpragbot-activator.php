@@ -55,19 +55,6 @@ class Wpragbot_Activator {
 
         $tables = array();
 
-        // Table for chat sessions
-        $tables['wpragbot_sessions'] = "CREATE TABLE {$wpdb->prefix}wpragbot_sessions (
-            id bigint(20) NOT NULL AUTO_INCREMENT,
-            session_id varchar(255) NOT NULL,
-            user_id bigint(20) DEFAULT NULL,
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            UNIQUE KEY session_id (session_id),
-            KEY user_id (user_id),
-            KEY created_at (created_at)
-        ) $charset_collate;";
-
         // Table for chat messages
         $tables['wpragbot_messages'] = "CREATE TABLE {$wpdb->prefix}wpragbot_messages (
             id bigint(20) NOT NULL AUTO_INCREMENT,
@@ -99,7 +86,7 @@ class Wpragbot_Activator {
         // Include the upgrade API
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 
-        // Create tables
+        // Create tables - dbDelta handles updates automatically
         foreach ($tables as $table_name => $table_sql) {
             dbDelta($table_sql);
         }

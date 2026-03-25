@@ -182,13 +182,7 @@ $settings = get_option('wpragbot_settings');
                     <tr>
                         <td><?php echo esc_html(substr($session['session_id'], 0, 20)); ?>...</td>
                         <td><?php echo esc_html($session['message_count']); ?></td>
-                        <td><?php 
-                            if (isset($session['updated_at']) && !empty($session['updated_at'])) {
-                                echo esc_html(human_time_diff(strtotime($session['updated_at']), current_time('timestamp'))); 
-                            } else {
-                                echo 'Never'; 
-                            }
-                            ?> ago</td>
+                        <td>Not Available</td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
