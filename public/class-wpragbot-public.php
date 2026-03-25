@@ -146,7 +146,7 @@ class Wpragbot_Public {
         $settings = get_option('wpragbot_settings');
 
         // Only display if we have API keys configured
-        if (empty($settings['gemini_api_key']) || empty($settings['qdrant_url']) || empty($settings['collection_name'])) {
+        if (empty($settings['api_key']) || empty($settings['qdrant_url']) || empty($settings['collection_name'])) {
             return;
         }
 
@@ -156,7 +156,7 @@ class Wpragbot_Public {
     /**
      * Display chatbot via shortcode.
      *
-     * @since    1.0.0
+     * @since    11.0.0
      * @param    array     $atts    Shortcode attributes
      * @return   string             HTML output
      */
