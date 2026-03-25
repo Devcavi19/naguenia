@@ -189,7 +189,8 @@ class Wpragbot_API {
     private function get_model_name($ai_provider) {
         switch (strtolower($ai_provider)) {
             case 'mistral':
-                return 'mistral-7b-instruct-v0.2';
+                // Updated to a valid current model with moderate cost / free-tier suitability.
+                return 'mistral-small-latest';
             case 'openai':
                 return 'gpt-3.5-turbo';
             case 'openrouter':
