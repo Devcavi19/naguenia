@@ -116,18 +116,35 @@ class Wpragbot_Admin {
             $this->plugin_name
         );
 
-        add_settings_section(
-            'wpragbot_knowledge_base_settings',
-            'Knowledge Base',
-            array( $this, 'knowledge_base_settings_section_callback' ),
-            $this->plugin_name
-        );
-
         // Add settings fields
         add_settings_field(
-            'wpragbot_gemini_api_key',
-            'Gemini API Key',
-            array( $this, 'gemini_api_key_render' ),
+            'wpragbot_ai_provider',
+            'AI Provider',
+            array( $this, 'ai_provider_render' ),
+            $this->plugin_name,
+            'wpragbot_api_settings'
+        );
+
+        add_settings_field(
+            'wpragbot_api_key',
+            'API Key',
+            array( $this, 'api_key_render' ),
+            $this->plugin_name,
+            'wpragbot_api_settings'
+        );
+
+        add_settings_field(
+            'wpragbot_supabase_url',
+            'Supabase URL',
+            array( $this, 'supabase_url_render' ),
+            $this->plugin_name,
+            'wpragbot_api_settings'
+        );
+
+        add_settings_field(
+            'wpragbot_supabase_key',
+            'Supabase Key',
+            array( $this, 'supabase_key_render' ),
             $this->plugin_name,
             'wpragbot_api_settings'
         );
@@ -231,10 +248,34 @@ class Wpragbot_Admin {
     /**
      * Field render functions
      */
-    public function gemini_api_key_render() {
+    public function ai_provider_render() {
         $options = get_option( 'wpragbot_settings' );
-        $api_key = isset( $options['gemini_api_key'] ) ? $options['gemini_api_key'] : '';
-        echo '<input type="password" name="wpragbot_settings[gemini_api_key]" value="' . esc_attr( $api_key ) . '" class="regular-text" />';
+        $provider = isset( $options['ai_provider'] ) ? $options['ai_provider'] : 'gemini';
+        echo '<select name="wpragbot_settings[ai_provider]" class="regular-text">';
+        echo '<option value="gemini"' . selected( $provider, 'gemini', false ) . '>Gemini</option>';
+        echo '<option value="openrouter"' . selected( $provider, 'openrouter', false ) . '>OpenRouter</option>';
+        echo '<option value="mistral"' . selected( $provider, 'mistral', false ) . '>Mistral</option>';
+        echo '<option value="openai"' . selected( $provider, 'openai', false ) . '>OpenAI</option>';
+        echo '</select>';
+        echo '<p class="description">Select the AI provider to use for responses</p>';
+    }
+
+    public function api_key_render() {
+        $options = get_option( 'wpragbot_settings' );
+        $api_key = isset( $options['api_key'] ) ? $options['api_key'] : '';
+        echo '<input type="password" name="wpragbot_settings[api_key]" value="' . esc_attr( $api_key ) . '" class="regular-text" />';
+    }
+
+    public function supabase_url_render() {
+        $options = get_option( 'wpragbot_settings' );
+        $url = isset( $options['supabase_url'] ) ? $options['supabase_url'] : '';
+        echo '<input type="url" name="wpragbot_settings[supabase_url]" value="' . esc_attr( $url ) . '" class="regular-text" />';
+    }
+
+    public function supabase_key_render() {
+        $options = get_option( 'wpragbot_settings' );
+        $key = isset( $options['supabase_key'] ) ? $options['supabase_key'] : '';
+        echo '<input type="password" name="wpragbot_settings[supabase_key]" value="' . esc_attr( $key ) . '" class="regular-text" />';
     }
 
     public function qdrant_url_render() {
@@ -325,14 +366,15 @@ class Wpragbot_Admin {
             $settings = get_option( 'wpragbot_settings' );
 
             // Validate API settings
-            if ( empty( $settings['gemini_api_key'] ) || empty( $settings['qdrant_url'] ) || empty( $settings['collection_name'] ) ) {
+            if ( empty( $settings['api_key'] ) || empty( $settings['qdrant_url'] ) || empty( $settings['collection_name'] ) ) {
                 wp_send_json_error( array( 'message' => 'API settings not configured. Please configure API keys first.' ) );
                 return;
             }
 
             // Process document through API
-            $api_handler = new Wpragbot_API();
-            $result = $api_handler->process_document( $content, $settings );
+            // Note: Document upload functionality has been removed. Documents must be pre-processed and stored in Qdrant.
+            wp_send_json_error( array( 'message' => 'Document upload functionality has been removed. Documents must be pre-processed and stored in Qdrant.' ) );
+            return;
 
             if ( is_wp_error( $result ) ) {
                 wp_send_json_error( array( 'message' => $result->get_error_message() ) );

@@ -29,7 +29,8 @@ class Wpragbot_Activator {
     public static function activate() {
         // Create options with default values
         $default_settings = array(
-            'gemini_api_key' => '',
+            'ai_provider' => 'gemini',
+            'api_key' => '',
             'qdrant_url' => '',
             'qdrant_api_key' => '',
             'collection_name' => 'knowledge_base',

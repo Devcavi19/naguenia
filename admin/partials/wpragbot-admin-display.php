@@ -58,7 +58,6 @@ $settings = get_option('wpragbot_settings');
                 <?php submit_button('Upload Document', 'primary', 'wpragbot_upload_submit'); ?>
             </form>
         </div>
-    </div>
 
     <h2>Analytics Dashboard</h2>
     <p>View chatbot usage statistics and performance metrics.</p>

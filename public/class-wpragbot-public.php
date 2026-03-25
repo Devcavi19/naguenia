@@ -109,7 +109,7 @@ class Wpragbot_Public {
         $settings = get_option('wpragbot_settings');
 
         // Validate settings
-        if (empty($settings['gemini_api_key']) || empty($settings['qdrant_url']) || empty($settings['collection_name'])) {
+        if (empty($settings['api_key']) || empty($settings['qdrant_url']) || empty($settings['collection_name'])) {
             wp_send_json_error('Missing required API settings');
             return;
         }
@@ -165,7 +165,7 @@ class Wpragbot_Public {
         $settings = get_option('wpragbot_settings');
 
         // Check if configured
-        if (empty($settings['gemini_api_key']) || empty($settings['qdrant_url']) || empty($settings['collection_name'])) {
+        if (empty($settings['api_key']) || empty($settings['qdrant_url']) || empty($settings['collection_name'])) {
             return '<div class="wpragbot-notice" style="padding: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; margin: 20px 0;">
                         <strong>WPRAGBot:</strong> Please configure API settings in WordPress Admin → Settings → WPRAGBot
                     </div>';

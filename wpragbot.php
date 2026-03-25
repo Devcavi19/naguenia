@@ -15,7 +15,7 @@
  * @wordpress-plugin
  * Plugin Name:       WPRAGBot
  * Plugin URI:        https://example.com/wpragbot
- * Description:       AI-powered chatbot plugin with RAG integration for Gemini and Qdrant
+ * Description:       AI-powered chatbot plugin with RAG integration for multiple AI providers and Qdrant
  * Version:           1.0.0
  * Author:            Your Name
  * Author URI:        https://example.com

@@ -120,7 +120,7 @@ class Wpragbot {
         /**
          * The class responsible for analytics and reporting.
          */
-        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-wpragbot-analytics.php';
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-wpragbot-analytics-supabase.php';
 
         $this->loader = new Wpragbot_Loader();
     }
@@ -138,7 +138,6 @@ class Wpragbot {
         $this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
         $this->loader->add_action( 'admin_menu', $plugin_admin, 'add_plugin_admin_menu' );
         $this->loader->add_action( 'admin_init', $plugin_admin, 'settings_init' );
-        $this->loader->add_action( 'wp_ajax_wpragbot_upload_document', $plugin_admin, 'handle_document_upload' );
     }
 
     /**
