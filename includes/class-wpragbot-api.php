@@ -504,7 +504,7 @@ class Wpragbot_API {
             
             error_log('WPRAGBot: Successfully generated response');
 
-            // 5. Return the response
+            // 7. Return the response
             return array(
                 'response' => $response,
                 'context' => $context,
@@ -569,7 +569,7 @@ class Wpragbot_API {
 
         error_log('WPRAGBot: Request body: ' . wp_json_encode(array(
             'vector_dimension' => count($query_embedding),
-            'limit' => 5,
+            'limit' => 10,
             'with_payload' => true
         )));
 
@@ -639,18 +639,20 @@ class Wpragbot_API {
     }
 
     /**
-     * Construct context from relevant documents.
+     * Generate embedding for text using the Hugging Face All-MiniLM-L6-v2 endpoint.
      *
-     * @since    1.0.0
-     * @param    array    $documents    Relevant documents
-    /**
-     * Generate embedding for text using the Hugging Face All-MiniLM-L6-v2 endpoint only.
+     * Note: $api_key, $ai_provider, and $task_type are accepted for API consistency
+     * and future extensibility, but the current implementation always delegates to
+     * Wpragbot_Embedding (HuggingFace) regardless of the AI provider setting.
      *
      * @since    1.0.0
      * @param    string    $text           Text to embed
+     * @param    string    $api_key        API key (reserved for future provider-based embedding)
+     * @param    string    $ai_provider    AI provider name (reserved for future use)
+     * @param    string    $task_type      Embedding task type hint (reserved for future use)
      * @return   array|WP_Error            Embedding array or error
      */
-    private function generate_embedding($text) {
+    private function generate_embedding($text, $api_key = '', $ai_provider = '', $task_type = '') {
         if (empty($text)) {
             return new WP_Error('empty_text', 'Text to embed cannot be empty');
         }
@@ -874,7 +876,7 @@ class Wpragbot_API {
             $start = $end - $overlap;
             
             // Ensure we make progress
-            if ($start <= $chunks[count($chunks) - 1]) {
+            if ($start <= ($end - $overlap)) {
                 $start = $end;
             }
         }

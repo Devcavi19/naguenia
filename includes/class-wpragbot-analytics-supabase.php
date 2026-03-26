@@ -10,7 +10,7 @@
  * @package    Wpragbot
  */
 
-use Supabase\SupabaseClient;
+// No external Supabase PHP package required — uses WordPress HTTP API (wp_remote_post)
 
 /**
  * The analytics functionality.
@@ -51,58 +51,85 @@ class Wpragbot_Analytics {
             return $this->track_chat_interaction_db($session_id, $user_message, $bot_response, $context);
         }
 
-        // Use Supabase for tracking
+        // Use Supabase REST API directly via WordPress HTTP API (no Composer package needed)
         try {
-            // Check if Supabase client is available (try to include it)
-            $supabase_available = false;
-            if (class_exists('Supabase\SupabaseClient')) {
-                $supabase_available = true;
-            } else {
-                // Try to include it manually if it exists
-                $supabase_file = plugin_dir_path(__FILE__) . '../vendor/autoload.php';
-                if (file_exists($supabase_file)) {
-                    require_once $supabase_file;
-                    if (class_exists('Supabase\SupabaseClient')) {
-                        $supabase_available = true;
-                    }
-                }
-            }
-            
-            if ($supabase_available) {
-                // Initialize Supabase client
-                
-                $supabase = new SupabaseClient(
-                    $settings['supabase_url'],
-                    $settings['supabase_key']
-                );
-                
-                // Prepare analytics data
-                $analytics_data = array(
-                    'session_id' => $session_id,
-                    'user_message_length' => strlen($user_message),
-                    'bot_response_length' => strlen($bot_response),
-                    'context_used' => !empty($context),
-                    'context_data' => $context,
-                    'timestamp' => current_time('mysql')
-                );
-                
-                // Insert into Supabase table
-                $response = $supabase->from('wpragbot_analytics')->insert(array(
-                    'session_id' => $session_id,
-                    'interaction_type' => 'chat',
-                    'data' => wp_json_encode($analytics_data),
-                    'created_at' => current_time('mysql'),
-                ));
-                
-                return true;
-            } else {
-                // Fallback to WordPress database if Supabase client not available
-                error_log('WPRAGBot: Supabase client not available, falling back to WordPress database');
+            $base_url = rtrim($settings['supabase_url'], '/');
+            $api_key  = $settings['supabase_key'];
+            $headers  = array(
+                'apikey'        => $api_key,
+                'Authorization' => 'Bearer ' . $api_key,
+                'Content-Type'  => 'application/json',
+                'Prefer'        => 'return=minimal',
+            );
+
+            // 1. Write user message to wpragbot_messages
+            $user_msg_response = wp_remote_post(
+                $base_url . '/rest/v1/wpragbot_messages',
+                array(
+                    'timeout' => 15,
+                    'headers' => $headers,
+                    'body'    => wp_json_encode(array(
+                        'session_id'   => $session_id,
+                        'message_type' => 'user',
+                        'content'      => $user_message,
+                    )),
+                )
+            );
+
+            if (is_wp_error($user_msg_response)) {
+                error_log('WPRAGBot Analytics: Failed to write user message to Supabase — ' . $user_msg_response->get_error_message());
                 return $this->track_chat_interaction_db($session_id, $user_message, $bot_response, $context);
             }
+
+            // 2. Write bot response to wpragbot_messages
+            $bot_msg_response = wp_remote_post(
+                $base_url . '/rest/v1/wpragbot_messages',
+                array(
+                    'timeout' => 15,
+                    'headers' => $headers,
+                    'body'    => wp_json_encode(array(
+                        'session_id'   => $session_id,
+                        'message_type' => 'bot',
+                        'content'      => $bot_response,
+                    )),
+                )
+            );
+
+            if (is_wp_error($bot_msg_response)) {
+                error_log('WPRAGBot Analytics: Failed to write bot message to Supabase — ' . $bot_msg_response->get_error_message());
+            }
+
+            // 3. Write analytics summary row to wpragbot_analytics
+            $analytics_data = array(
+                'user_message_length' => strlen($user_message),
+                'bot_response_length' => strlen($bot_response),
+                'context_used'        => !empty($context),
+            );
+
+            $analytics_response = wp_remote_post(
+                $base_url . '/rest/v1/wpragbot_analytics',
+                array(
+                    'timeout' => 15,
+                    'headers' => $headers,
+                    'body'    => wp_json_encode(array(
+                        'session_id'       => $session_id,
+                        'interaction_type' => 'chat',
+                        'data'             => wp_json_encode($analytics_data),
+                    )),
+                )
+            );
+
+            if (is_wp_error($analytics_response)) {
+                error_log('WPRAGBot Analytics: Failed to write analytics to Supabase — ' . $analytics_response->get_error_message());
+            }
+
+            // Always also write to local DB as a secondary backup
+            $this->track_chat_interaction_db($session_id, $user_message, $bot_response, $context);
+
+            return true;
+
         } catch (Exception $e) {
             error_log('WPRAGBot: Supabase tracking error: ' . $e->getMessage());
-            // Fallback to WordPress database if Supabase fails
             return $this->track_chat_interaction_db($session_id, $user_message, $bot_response, $context);
         }
     }
@@ -119,9 +146,6 @@ class Wpragbot_Analytics {
      */
     private function track_chat_interaction_db($session_id, $user_message, $bot_response, $context = array()) {
         global $wpdb;
-
-        // Ensure session exists
-        $this->ensure_session_exists($session_id);
 
         // Store user message
         $user_result = $wpdb->insert(
@@ -188,30 +212,7 @@ class Wpragbot_Analytics {
      * @param    string    $session_id     Session identifier
      * @return   bool                      Whether session exists or was created
      */
-    private function ensure_session_exists($session_id) {
-        global $wpdb;
 
-        $session = $wpdb->get_row($wpdb->prepare(
-            "SELECT id FROM {$wpdb->prefix}wpragbot_sessions WHERE session_id = %s",
-            $session_id
-        ));
-
-        if (!$session) {
-            $result = $wpdb->insert(
-                $wpdb->prefix . 'wpragbot_sessions',
-                array(
-                    'session_id' => $session_id,
-                    'created_at' => current_time('mysql'),
-                    'updated_at' => current_time('mysql'),
-                ),
-                array('%s', '%s', '%s')
-            );
-
-            return $result !== false;
-        }
-
-        return true;
-    }
 
     /**
      * Get chat statistics.
@@ -324,11 +325,10 @@ class Wpragbot_Analytics {
         global $wpdb;
         
         $sessions = $wpdb->get_results($wpdb->prepare(
-            "SELECT s.session_id, s.created_at, COUNT(m.id) as message_count
-             FROM {$wpdb->prefix}wpragbot_sessions s
-             LEFT JOIN {$wpdb->prefix}wpragbot_messages m ON s.session_id = m.session_id
-             GROUP BY s.session_id, s.created_at
-             ORDER BY s.created_at DESC
+            "SELECT session_id, MAX(created_at) as created_at, COUNT(id) as message_count
+             FROM {$wpdb->prefix}wpragbot_messages
+             GROUP BY session_id
+             ORDER BY created_at DESC
              LIMIT %d",
             $limit
         ), ARRAY_A);

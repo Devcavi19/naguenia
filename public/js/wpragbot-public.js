@@ -103,7 +103,7 @@
                     },
                     success: function(response) {
                         // Remove loading indicator
-                        $('.wpragbot-loading').remove();
+                        $('.wpragbot-loading').closest('.wpragbot-message').remove();
 
                         if (response.success) {
                             // Add bot response to chat
@@ -115,7 +115,7 @@
                     },
                     error: function() {
                         // Remove loading indicator
-                        $('.wpragbot-loading').remove();
+                        $('.wpragbot-loading').closest('.wpragbot-message').remove();
                         chatWidget.addMessage('Error: Failed to get response', 'bot');
                     }
                 });

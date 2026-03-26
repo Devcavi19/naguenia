@@ -376,16 +376,6 @@ class Wpragbot_Admin {
             wp_send_json_error( array( 'message' => 'Document upload functionality has been removed. Documents must be pre-processed and stored in Qdrant.' ) );
             return;
 
-            if ( is_wp_error( $result ) ) {
-                wp_send_json_error( array( 'message' => $result->get_error_message() ) );
-            } else {
-                wp_send_json_success( array(
-                    'message' => 'Document uploaded and processed successfully',
-                    'file' => basename( $file_path ),
-                    'title' => $title,
-                    'chunks' => count( $result['chunks'] )
-                ));
-            }
         } else {
             wp_send_json_error( array( 'message' => $movefile['error'] ) );
         }

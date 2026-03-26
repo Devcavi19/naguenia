@@ -137,24 +137,15 @@ class Wpragbot_Embedding {
     public function health_check() {
         $url = 'https://devcavi19-hf-all-minilm-l6-v2-wp-api.hf.space/health';
 
-        // Use cURL for better control and error handling
-        $curl = curl_init();
-        curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_TIMEOUT, $this->timeout);
-        curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
-        curl_setopt($curl, CURLOPT_USERAGENT, 'WordPress Plugin WPRAGBot');
+        $response = wp_remote_get($url, array(
+            'timeout' => $this->timeout,
+            'user-agent' => 'WordPress Plugin WPRAGBot',
+        ));
 
-        $response = curl_exec($curl);
-        $response_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        $error = curl_error($curl);
-        curl_close($curl);
-
-        if ($error) {
-            return new WP_Error('health_check_failed', 'Failed to connect to embedding API: ' . $error);
+        if (is_wp_error($response)) {
+            return new WP_Error('health_check_failed', 'Failed to connect to embedding API: ' . $response->get_error_message());
         }
 
-        return $response_code === 200;
+        return wp_remote_retrieve_response_code($response) === 200;
     }
 }

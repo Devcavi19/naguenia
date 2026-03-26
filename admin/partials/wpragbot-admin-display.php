@@ -58,6 +58,7 @@ $settings = get_option('wpragbot_settings');
                 <?php submit_button('Upload Document', 'primary', 'wpragbot_upload_submit'); ?>
             </form>
         </div>
+    </div>
 
     <h2>Analytics Dashboard</h2>
     <p>View chatbot usage statistics and performance metrics.</p>
@@ -116,14 +117,14 @@ $settings = get_option('wpragbot_settings');
             </table>
             <?php endif; ?>
 
-            <?php if (!empty($trends['daily_usage'])): ?>
+            <?php if (!empty($trends)): ?>
             <h4 style="margin-top: 20px;">Daily Usage Trend</h4>
             <div class="chart-placeholder" style="background: #f9f9f9; padding: 20px; border-radius: 5px; margin-top: 10px;">
                 <canvas id="wpragbot-daily-chart" width="600" height="200"></canvas>
                 <script>
                     // Simple bar chart with daily usage
                     (function($) {
-                        var dailyData = <?php echo wp_json_encode($trends['daily_usage']); ?>;
+                        var dailyData = <?php echo wp_json_encode($trends); ?>;
                         var canvas = document.getElementById('wpragbot-daily-chart');
                         var ctx = canvas.getContext('2d');
                         
@@ -190,8 +191,8 @@ $settings = get_option('wpragbot_settings');
             <?php endif; ?>
 
             <div style="margin-top: 20px;">
-                <a href="<?php echo admin_url('admin.php?page=wpragbot&action=export_analytics'); ?>" class="button">Export Data (CSV)</a>
-                <a href="<?php echo admin_url('admin.php?page=wpragbot&action=export_analytics&format=json'); ?>" class="button">Export Data (JSON)</a>
+                <a href="<?php echo admin_url('options-general.php?page=wpragbot&action=export_analytics'); ?>" class="button">Export Data (CSV)</a>
+                <a href="<?php echo admin_url('options-general.php?page=wpragbot&action=export_analytics&format=json'); ?>" class="button">Export Data (JSON)</a>
             </div>
         </div>
     </div>
