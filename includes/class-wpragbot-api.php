@@ -80,6 +80,25 @@ class Wpragbot_API {
             );
 
             // Select endpoint based on AI provider
+            return $this->generate_response_with_messages($messages, $api_key, $ai_provider);
+
+        } catch (Exception $e) {
+            error_log('WPRAGBot: Exception in generate_response: ' . $e->getMessage());
+            return new WP_Error('api_error', 'Error generating response: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Generate response using selected AI provider with pre-built messages array.
+     *
+     * @since    1.0.0
+     * @param    array     $messages         The messages array
+     * @param    string    $api_key          The API key for the AI provider
+     * @param    string    $ai_provider      The AI provider to use
+     * @return   string|WP_Error             Generated response or error
+     */
+    public function generate_response_with_messages($messages, $api_key, $ai_provider) {
+        try {
             $endpoint = '';
             $headers = array(
                 'Content-Type' => 'application/json',
@@ -174,9 +193,150 @@ class Wpragbot_API {
             return trim($response_text);
 
         } catch (Exception $e) {
-            error_log('WPRAGBot: Exception in generate_response: ' . $e->getMessage());
+            error_log('WPRAGBot: Exception in generate_response_with_messages: ' . $e->getMessage());
             return new WP_Error('api_error', 'Error generating response: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Get prompt history for session from Supabase or Local DB.
+     *
+     * @param string $session_id
+     * @return array
+     */
+    private function get_prompt_history($session_id) {
+        $settings = get_option('wpragbot_settings');
+        if (!empty($settings['supabase_url']) && !empty($settings['supabase_key'])) {
+            return $this->get_prompt_history_supabase($session_id, $settings['supabase_url'], $settings['supabase_key']);
+        }
+        return $this->get_prompt_history_local($session_id);
+    }
+
+    private function get_prompt_history_supabase($session_id, $url, $key) {
+        $endpoint = rtrim($url, '/') . '/rest/v1/wpragbot_messages?session_id=eq.' . urlencode($session_id) . '&order=created_at.asc';
+        $response = wp_remote_get($endpoint, array(
+            'headers' => array(
+                'apikey' => $key,
+                'Authorization' => 'Bearer ' . $key,
+            )
+        ));
+        
+        if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
+            return $this->get_prompt_history_local($session_id); // Fallback
+        }
+        
+        $body = wp_remote_retrieve_body($response);
+        $data = json_decode($body, true);
+        if (!is_array($data)) return array();
+        
+        $messages = array();
+        foreach ($data as $row) {
+            $messages[] = array(
+                'role' => $row['message_type'],
+                'content' => $row['content']
+            );
+        }
+        return $messages;
+    }
+
+    private function get_prompt_history_local($session_id) {
+        global $wpdb;
+        $results = $wpdb->get_results($wpdb->prepare(
+            "SELECT message_type, content FROM {$wpdb->prefix}wpragbot_messages WHERE session_id = %s ORDER BY created_at ASC",
+            $session_id
+        ), ARRAY_A);
+        
+        $messages = array();
+        if ($results) {
+            foreach ($results as $row) {
+                // map message_type (bot->assistant, user->user if needed, assuming user/bot)
+                $messages[] = array(
+                    'role' => $row['message_type'] === 'bot' ? 'assistant' : 'user',
+                    'content' => $row['content']
+                );
+            }
+        }
+        return $messages;
+    }
+
+    private function get_session_summary($session_id, $turn_count) {
+        $settings = get_option('wpragbot_settings');
+        if (!empty($settings['supabase_url']) && !empty($settings['supabase_key'])) {
+            // Check supabase
+            $endpoint = rtrim($settings['supabase_url'], '/') . '/rest/v1/session_summaries?session_id=eq.' . urlencode($session_id) . '&turn_count=eq.' . intval($turn_count);
+            $response = wp_remote_get($endpoint, array(
+                'headers' => array(
+                    'apikey' => $settings['supabase_key'],
+                    'Authorization' => 'Bearer ' . $settings['supabase_key'],
+                )
+            ));
+            if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+                $data = json_decode(wp_remote_retrieve_body($response), true);
+                if (is_array($data) && !empty($data)) {
+                    return $data[0]['summary'];
+                }
+            }
+        }
+        
+        // Fallback or local
+        global $wpdb;
+        $summary = $wpdb->get_var($wpdb->prepare(
+            "SELECT summary FROM {$wpdb->prefix}wpragbot_session_summaries WHERE session_id = %s AND turn_count = %d",
+            $session_id, $turn_count
+        ));
+        
+        return $summary ? $summary : null;
+    }
+
+    private function save_session_summary($session_id, $turn_count, $summary) {
+        $settings = get_option('wpragbot_settings');
+        if (!empty($settings['supabase_url']) && !empty($settings['supabase_key'])) {
+            $endpoint = rtrim($settings['supabase_url'], '/') . '/rest/v1/session_summaries';
+            $body = array(
+                'session_id' => $session_id,
+                'turn_count' => $turn_count,
+                'summary' => $summary
+            );
+            wp_remote_post($endpoint, array(
+                'method' => 'POST',
+                'headers' => array(
+                    'apikey' => $settings['supabase_key'],
+                    'Authorization' => 'Bearer ' . $settings['supabase_key'],
+                    'Content-Type' => 'application/json',
+                    'Prefer' => 'resolution=merge-duplicates'
+                ),
+                'body' => wp_json_encode($body)
+            ));
+        }
+        
+        global $wpdb;
+        $wpdb->replace(
+            $wpdb->prefix . 'wpragbot_session_summaries',
+            array(
+                'session_id' => $session_id,
+                'turn_count' => $turn_count,
+                'summary' => $summary,
+                'created_at' => current_time('mysql')
+            ),
+            array('%s', '%d', '%s', '%s')
+        );
+    }
+
+    private function summarise_turns($turns, $api_key, $ai_provider) {
+        $content = "";
+        foreach ($turns as $turn) {
+            $content .= strtoupper($turn['role']) . ": " . $turn['content'] . "\n";
+        }
+        
+        $messages = array(
+            array(
+                'role' => 'user',
+                'content' => "Summarize briefly. Keep key facts, preferences, unresolved questions. Be concise.\n\n" . $content
+            )
+        );
+        
+        $response = $this->generate_response_with_messages($messages, $api_key, $ai_provider);
+        return is_wp_error($response) ? null : $response;
     }
 
     /**
@@ -277,14 +437,64 @@ class Wpragbot_API {
             
             error_log('WPRAGBot: Context length: ' . strlen($context) . ' characters');
 
-            // 4. Generate response using selected AI provider with context
-            $response = $this->generate_response(
-                $message, 
-                $context, 
+            // 4. Prepare chat history and summaries
+            $all_messages = $this->get_prompt_history($session_id);
+            $count = count($all_messages);
+            $summary = null;
+            $recent_messages = $all_messages;
+
+            if ($count > 10) {
+                $old_messages = array_slice($all_messages, 0, -6);
+                $recent_messages = array_slice($all_messages, -6);
+                $turn_count = count($old_messages);
+
+                $summary = $this->get_session_summary($session_id, $turn_count);
+                if (!$summary) {
+                    $summary = $this->summarise_turns($old_messages, $settings['api_key'], $settings['ai_provider']);
+                    if ($summary) {
+                        $this->save_session_summary($session_id, $turn_count, $summary);
+                    }
+                }
+            }
+
+            // 5. Build final messages array
+            $final_messages = array();
+            
+            $system_prompt = $settings['system_prompt'] ?? '';
+            if (!empty($system_prompt)) {
+                $final_messages[] = array(
+                    'role' => 'system',
+                    'content' => $system_prompt
+                );
+            }
+
+            $context_block = "";
+            if (!empty($context)) {
+                $context_block .= "Context information:\n" . $context . "\n\n";
+            }
+            if ($summary) {
+                $context_block .= "Previous Conversations Summary:\n" . $summary . "\n\n";
+            }
+
+            foreach ($recent_messages as $msg) {
+                // Supabase analytic insertions might use local names like 'user'/'bot'. 
+                // Mistral/OpenAI expect 'user'/'assistant'
+                $final_messages[] = array(
+                    'role' => $msg['role'] === 'bot' ? 'assistant' : $msg['role'],
+                    'content' => $msg['content']
+                );
+            }
+
+            $final_messages[] = array(
+                'role' => 'user',
+                'content' => $context_block . "User question: " . $message
+            );
+
+            // 6. Generate response using selected AI provider with messages array
+            $response = $this->generate_response_with_messages(
+                $final_messages, 
                 $settings['api_key'], 
-                $settings['ai_provider'],
-                $settings['system_prompt'] ?? '', 
-                $settings['collection_name'] ?? ''
+                $settings['ai_provider']
             );
 
             if (is_wp_error($response)) {

@@ -83,6 +83,18 @@ class Wpragbot_Activator {
             KEY type_created (interaction_type, created_at)
         ) $charset_collate;";
 
+        // Table for session summaries
+        $tables['wpragbot_session_summaries'] = "CREATE TABLE {$wpdb->prefix}wpragbot_session_summaries (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            session_id varchar(255) NOT NULL,
+            turn_count int NOT NULL,
+            summary longtext NOT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY session_turn (session_id, turn_count),
+            KEY session_id (session_id)
+        ) $charset_collate;";
+
         // Include the upgrade API
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 
