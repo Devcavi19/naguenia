@@ -83,6 +83,19 @@ class Wpragbot_Public {
      * @since    1.0.0
      */
     public function handle_chat() {
+        // --- Rate Limiting (IP-based, 20 requests per hour) ---
+        $ip              = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
+        $transient_key   = 'wpragbot_rate_' . md5( $ip );
+        $request_count   = (int) get_transient( $transient_key );
+
+        if ( $request_count >= 20 ) {
+            wp_send_json_error( 'Rate limit exceeded. Please try again in an hour.' );
+            return;
+        }
+
+        set_transient( $transient_key, $request_count + 1, HOUR_IN_SECONDS );
+        // --- End Rate Limiting ---
+
         // Check if POST data exists
         if ( !isset( $_POST['nonce'] ) || !isset( $_POST['message'] ) || !isset( $_POST['session_id'] ) ) {
             wp_send_json_error( 'Missing required parameters' );
@@ -156,7 +169,7 @@ class Wpragbot_Public {
     /**
      * Display chatbot via shortcode.
      *
-     * @since    11.0.0
+     * @since    1.0.0
      * @param    array     $atts    Shortcode attributes
      * @return   string             HTML output
      */

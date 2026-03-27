@@ -30,33 +30,48 @@ $settings = get_option('wpragbot_settings');
     </form>
 
     <h2>Knowledge Base Management</h2>
-    <p>Upload and manage documents for the chatbot knowledge base.</p>
+    <p>Manage the documents your chatbot uses to answer questions.</p>
 
     <div class="postbox">
         <div class="inside">
-            <h3>Upload Document</h3>
-            <p>Upload documents to add to the knowledge base. The system will automatically process and embed the content.</p>
+            <h3>📚 How to Add Documents</h3>
+            <p>WPRAGBot uses <strong>Qdrant</strong> as its vector database. Documents must be pre-processed and indexed into your Qdrant collection <em>before</em> the chatbot can use them.</p>
 
-            <form method="post" action="" enctype="multipart/form-data" id="wpragbot-upload-form">
-                <?php wp_nonce_field('wpragbot_upload_document', 'wpragbot_upload_document_nonce'); ?>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row">Document File</th>
-                        <td>
-                            <input type="file" name="wpragbot_document_file" id="wpragbot_document_file" accept=".txt,.pdf,.doc,.docx,.md" required />
-                            <p class="description">Supported formats: TXT, PDF, DOC, DOCX, MD</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Document Title</th>
-                        <td>
-                            <input type="text" name="wpragbot_document_title" id="wpragbot_document_title" class="regular-text" />
-                            <p class="description">Enter a title for this document (optional)</p>
-                        </td>
-                    </tr>
-                </table>
-                <?php submit_button('Upload Document', 'primary', 'wpragbot_upload_submit'); ?>
-            </form>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row">Step 1</th>
+                    <td>
+                        <strong>Prepare your documents</strong><br>
+                        <span class="description">Supported formats: TXT, PDF, DOCX, Markdown. Plain text gives the best results.</span>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Step 2</th>
+                    <td>
+                        <strong>Run the indexing script</strong><br>
+                        <span class="description">Use your external indexing tool or script to chunk, embed, and upload your documents to Qdrant.<br>
+                        Collection name must match the value set in <strong>API Settings → Qdrant Collection Name</strong> below.</span>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Step 3</th>
+                    <td>
+                        <strong>Verify in Qdrant dashboard</strong><br>
+                        <span class="description">Open your Qdrant URL in a browser and confirm your collection contains points. The chatbot will automatically use them on the next query.</span>
+                    </td>
+                </tr>
+            </table>
+
+            <div class="notice notice-info inline" style="margin: 10px 0;">
+                <p><strong>Current Qdrant Collection:</strong>
+                <?php
+                $current_collection = isset( $settings['collection_name'] ) && ! empty( $settings['collection_name'] )
+                    ? esc_html( $settings['collection_name'] )
+                    : '<em style="color:#999;">Not configured — set below in API Settings</em>';
+                echo $current_collection;
+                ?>
+                </p>
+            </div>
         </div>
     </div>
 

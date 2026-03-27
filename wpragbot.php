@@ -8,17 +8,17 @@
  * registers the activation and deactivation functions, and defines a function
  * that starts the plugin.
  *
- * @link              https://example.com
+ * @link              https://github.com/Devcavi19/wpragbot
  * @since             1.0.0
  * @package           Wpragbot
  *
  * @wordpress-plugin
  * Plugin Name:       WPRAGBot
- * Plugin URI:        https://example.com/wpragbot
- * Description:       AI-powered chatbot plugin with RAG integration for multiple AI providers and Qdrant
+ * Plugin URI:        https://github.com/Devcavi19/wpragbot
+ * Description:       AI-powered chatbot plugin with RAG integration for multiple AI providers (Gemini, OpenAI, Mistral, OpenRouter) and Qdrant vector search.
  * Version:           1.0.0
- * Author:            Your Name
- * Author URI:        https://example.com
+ * Author:            Devcavi19
+ * Author URI:        https://github.com/Devcavi19
  * License:           GPL-2.0+
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain:       wpragbot

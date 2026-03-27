@@ -209,7 +209,6 @@
         // Initialize the chat widget
         chatWidget.init();
 
-        console.log('WPRAGBot public JavaScript loaded');
     });
 
 })( jQuery );

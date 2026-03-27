@@ -224,7 +224,7 @@ class Wpragbot_Analytics {
     public function get_chat_statistics($days = 30) {
         global $wpdb;
         
-        $since_date = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+        $since_date = wp_date( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
         
         // Get total chats
         $total_chats = $wpdb->get_var($wpdb->prepare(
@@ -299,7 +299,7 @@ class Wpragbot_Analytics {
     public function get_usage_trends($days = 30) {
         global $wpdb;
         
-        $since_date = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+        $since_date = wp_date( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
         
         // Get daily chat counts
         $daily_counts = $wpdb->get_results($wpdb->prepare(
@@ -347,7 +347,7 @@ class Wpragbot_Analytics {
     public function export_data($format = 'csv', $days = 30) {
         global $wpdb;
         
-        $since_date = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+        $since_date = wp_date( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
         
         // Get analytics data
         $analytics_data = $wpdb->get_results($wpdb->prepare(
