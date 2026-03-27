@@ -12,6 +12,10 @@
 (function( $ ) {
     'use strict';
 
+    // In-memory session ID — lives only for this page load.
+    // Destroyed on reload/navigation, guaranteeing a fresh session every time.
+    var wpragbotSessionId = null;
+
     $(document).ready(function() {
         // Initialize chat widget
         var chatWidget = {
@@ -183,23 +187,22 @@
             },
 
             getSessionId: function() {
-                // Generate or retrieve a valid UUID for the session
-                var sessionId = localStorage.getItem('wpragbot_session_id');
+                // In-memory UUID — generated once per page load, never persisted.
+                // A page reload always produces a brand-new session ID.
                 var uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                
-                if (!sessionId || !uuidRegex.test(sessionId)) {
+
+                if (!wpragbotSessionId || !uuidRegex.test(wpragbotSessionId)) {
                     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-                        sessionId = crypto.randomUUID();
+                        wpragbotSessionId = crypto.randomUUID();
                     } else {
-                        // Fallback for older browsers
-                        sessionId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                        // Fallback for older browsers (IE11, etc.)
+                        wpragbotSessionId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
                             var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
                             return v.toString(16);
                         });
                     }
-                    localStorage.setItem('wpragbot_session_id', sessionId);
                 }
-                return sessionId;
+                return wpragbotSessionId;
             }
         };
 

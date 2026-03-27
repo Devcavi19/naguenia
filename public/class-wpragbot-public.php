@@ -197,6 +197,9 @@ class Wpragbot_Public {
         </div>
         <script>
         (function($) {
+            // In-memory session ID for shortcode — fresh on every page load.
+            var wpragbotShortcodeSessionId = null;
+
             var shortcodeChat = {
                 init: function() {
                     $('#wpragbot-send-button-shortcode').on('click', function() {
@@ -254,21 +257,20 @@ class Wpragbot_Public {
                     $('#wpragbot-chat-messages-shortcode').scrollTop($('#wpragbot-chat-messages-shortcode')[0].scrollHeight);
                 },
                 getSessionId: function() {
-                    // Generate or retrieve a valid UUID (matches wpragbot-public.js logic)
-                    var sessionId = localStorage.getItem('wpragbot_session_id');
+                    // In-memory UUID — generated once per page load, never persisted.
+                    // A page reload always produces a brand-new session ID.
                     var uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                    if (!sessionId || !uuidRegex.test(sessionId)) {
+                    if (!wpragbotShortcodeSessionId || !uuidRegex.test(wpragbotShortcodeSessionId)) {
                         if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-                            sessionId = crypto.randomUUID();
+                            wpragbotShortcodeSessionId = crypto.randomUUID();
                         } else {
-                            sessionId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                            wpragbotShortcodeSessionId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
                                 var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
                                 return v.toString(16);
                             });
                         }
-                        localStorage.setItem('wpragbot_session_id', sessionId);
                     }
-                    return sessionId;
+                    return wpragbotShortcodeSessionId;
                 }
             };
             $(document).ready(function() {
