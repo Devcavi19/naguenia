@@ -19,8 +19,9 @@ This is an AI-powered chatbot plugin for WordPress that implements a **Retrieval
 4. **Admin Interface** (`class-wpragbot-admin.php`) - WordPress admin settings and configuration
 5. **Public Interface** (`class-wpragbot-public.php`) - Frontend chat widget and AJAX handlers
 6. **API Integration** (`class-wpragbot-api.php`) - Core RAG functionality connecting to multiple AI providers and Qdrant
-7. **Analytics** (`class-wpragbot-analytics.php`) - Tracks chat interactions and generates reports using Supabase
-8. **Activation/Deactivation** (`class-wpragbot-activator.php`, `class-wpragbot-deactivator.php`) - Database setup and cleanup
+7. **Embedding** (`class-wpragbot-embedding.php`) - Handles embedding generation using Hugging Face Ollama All-MiniLM L6 v2
+8. **Analytics** (`class-wpragbot-analytics-supabase.php`) - Tracks chat interactions and generates reports using Supabase
+9. **Activation/Deactivation** (`class-wpragbot-activator.php`, `class-wpragbot-deactivator.php`) - Database setup and cleanup
 
 ## Key Features
 
@@ -72,7 +73,14 @@ This is an AI-powered chatbot plugin for WordPress that implements a **Retrieval
 
 - **Content Chunking**: Documents are split into chunks (1500 characters) with 300-character overlap
 - **Sentence Boundary Detection**: Attempts to break chunks at natural sentence boundaries
-- **Vector Embedding**: Each chunk is embedded using all-MiniLM-L6-v2 API
+- **Vector Embedding**: Each chunk is embedded using all-MiniLM-L6-v2 API via Hugging Face Ollama
+- **Qdrant Upload**: Embeddings are uploaded to Qdrant collection with metadata
+
+### Document Processing Pipeline
+
+- **Content Chunking**: Documents are split into chunks (1500 characters) with 300-character overlap
+- **Sentence Boundary Detection**: Attempts to break chunks at natural sentence boundaries
+- **Vector Embedding**: Each chunk is embedded using all-MiniLM-L6-v2 API via Hugging Face Ollama
 - **Qdrant Upload**: Embeddings are uploaded to Qdrant collection with metadata
 
 ## Plugin Workflow
@@ -80,7 +88,7 @@ This is an AI-powered chatbot plugin for WordPress that implements a **Retrieval
 1. **Setup**: Admin configures AI provider, API keys, Qdrant URL, and collection name in WordPress admin
 2. **Knowledge Base**: Documents are already processed and stored in Qdrant Cloud with specified collection name
 3. **Usage**: Visitors interact with the chat widget or shortcode
-4. **Processing**: Each message triggers the RAG pipeline using selected AI provider
+4. **Processing**: Each message triggers the RAG pipeline using selected AI provider and embedding service
 5. **Analytics**: Interactions are tracked and can be viewed in admin dashboard using Supabase
 
 ## Security Considerations
@@ -100,6 +108,7 @@ This is an AI-powered chatbot plugin for WordPress that implements a **Retrieval
 - **Session Persistence**: Uses localStorage for session management
 - **Performance Optimization**: Chunking and efficient vector search
 - **Supabase Analytics**: Analytics and tracking using Supabase database
+- **Hugging Face Ollama Integration**: Embedding generation using Hugging Face Ollama All-MiniLM L6 v2
 
 ## Installation and Setup
 
