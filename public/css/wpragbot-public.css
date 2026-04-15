@@ -9,79 +9,189 @@
  * @subpackage Wpragbot/public/css
  */
 
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+
 /* Chat widget styles */
 .wpragbot-chat-container {
+    --wpragbot-bg: #ffffff;
+    --wpragbot-bg-solid: #ffffff;
+    --wpragbot-border: rgba(0, 0, 0, 0.05);
+    --wpragbot-header-bg: linear-gradient(135deg, #F03127, #C41A13);
+    --wpragbot-header-color: #ffffff;
+    --wpragbot-user-bg: #F0F0F0;
+    --wpragbot-user-color: #1A1A1A;
+    --wpragbot-bot-bg: transparent;
+    --wpragbot-bot-color: #1A1A1A;
+    --wpragbot-error-bg: #fef2f2;
+    --wpragbot-error-color: #b91c1c;
+    --wpragbot-radius: 20px;
+    --wpragbot-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    --brand-red: #E3231B;
+
     position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 350px;
-    height: 500px;
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    bottom: 24px;
+    right: 24px;
+    width: min(400px, 92vw);
+    height: min(560px, 92vh);
+    background: var(--wpragbot-bg);
+    border: 1px solid var(--wpragbot-border);
+    border-radius: var(--wpragbot-radius);
+    animation: wpragbotFadeInScale 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform-origin: bottom right;
+    box-shadow: var(--wpragbot-shadow);
     display: flex;
     flex-direction: column;
     z-index: 9999;
     overflow: hidden;
-    font-family: Arial, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+.wpragbot-chat-container[hidden] {
+    display: none !important;
 }
 
 .wpragbot-chat-header {
-    background: #4a6fa5;
-    color: white;
-    padding: 15px;
+    background: var(--wpragbot-header-bg);
+    color: var(--wpragbot-header-color);
+    padding: 16px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    cursor: move;
+    gap: 10px;
     user-select: none;
+    border-top-left-radius: var(--wpragbot-radius);
+    border-top-right-radius: var(--wpragbot-radius);
+}
+
+.wpragbot-header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.wpragbot-logo-svg {
+    width: 32px;
+    height: 32px;
 }
 
 .wpragbot-chat-title {
-    font-weight: bold;
-    font-size: 16px;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+}
+
+.wpragbot-chat-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .wpragbot-chat-close {
     cursor: pointer;
-    font-size: 24px;
-    line-height: 1;
+    background: transparent;
+    border: none;
+    color: white;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    transition: background 0.2s ease;
+    padding: 0;
+}
+
+.wpragbot-chat-close:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.wpragbot-chat-status {
+    display: none;
 }
 
 .wpragbot-chat-messages {
     flex: 1;
-    padding: 15px;
+    padding: 20px 24px;
+    gap: 16px;
     overflow-y: auto;
-    background: #f9f9f9;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    scroll-behavior: smooth;
+}
+
+.wpragbot-typing-indicator {
+    opacity: 1;
+    border: none;
+    background: transparent;
+    align-self: flex-start;
+}
+
+.wpragbot-error-message {
+    background: var(--wpragbot-error-bg);
+    color: var(--wpragbot-error-color);
+    border: 1px solid rgba(185, 28, 28, 0.25);
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+}
+
+.wpragbot-retry-button {
+    margin-left: 10px;
+    background: var(--wpragbot-user-bg);
+    color: #1A1A1A;
+    border: none;
+    border-radius: 12px;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+
+.wpragbot-retry-button:hover {
+    background: #e0e0e0;
 }
 
 .wpragbot-message {
-    margin-bottom: 15px;
-    padding: 10px 15px;
-    border-radius: 18px;
-    max-width: 80%;
+    margin-bottom: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    white-space: pre-wrap;
     word-wrap: break-word;
-    line-height: 1.4;
-    font-size: 13px;
+    font-size: 14px;
+    transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 .wpragbot-user-message {
-    background: #4a6fa5;
-    color: white;
-    margin-left: auto;
-    text-align: right;
+    background: var(--wpragbot-user-bg);
+    color: var(--wpragbot-user-color);
+    align-self: flex-end;
+    text-align: left;
+    padding: 12px 16px;
+    border-radius: 20px;
+    max-width: 85%;
+    font-weight: 500;
 }
 
 .wpragbot-bot-message {
-    background: #e9ecef;
-    color: #333;
+    background: var(--wpragbot-bot-bg);
+    color: var(--wpragbot-bot-color);
+    align-self: stretch;
+    width: 100%;
+    max-width: 100%;
+    padding: 10px 0;
+    border-radius: 0;
+    font-family: 'Lora', serif;
+    font-size: 15px;
+    line-height: 1.6;
+    display: block; /* Since it's full width editorial style */
 }
 
 /* Markdown formatting styles */
 .wpragbot-bot-message strong {
-    font-weight: bold;
+    font-weight: 600;
     color: #000;
+    font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .wpragbot-bot-message em {
@@ -91,125 +201,154 @@
 .wpragbot-bot-message code {
     background: #f4f4f4;
     padding: 2px 5px;
-    border-radius: 3px;
+    border-radius: 4px;
     font-family: 'Courier New', monospace;
-    font-size: 12px;
-    color: #c7254e;
+    font-size: 13px;
+    color: #E3231B;
 }
 
 .wpragbot-bot-message ul {
-    margin: 8px 0;
-    padding-left: 20px;
+    margin: 12px 0 12px 20px;
+    padding-left: 0;
     list-style-type: disc;
 }
 
 .wpragbot-bot-message li {
-    margin: 4px 0;
-    line-height: 1.5;
+    margin: 6px 0;
+    line-height: 1.6;
+}
+
+.wpragbot-bot-message hr {
+    border: none;
+    border-top: 1px solid #EBEBEB;
+    margin: 20px 0;
 }
 
 .wpragbot-bot-message h1,
 .wpragbot-bot-message h2,
 .wpragbot-bot-message h3 {
-    margin: 10px 0 5px 0;
-    font-weight: bold;
+    margin: 20px 0 10px 0;
+    font-weight: 700;
     line-height: 1.3;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: #1A1A1A;
 }
 
-.wpragbot-bot-message h1 {
-    font-size: 16px;
-}
-
-.wpragbot-bot-message h2 {
-    font-size: 15px;
-}
-
-.wpragbot-bot-message h3 {
-    font-size: 14px;
-}
+.wpragbot-bot-message h1 { font-size: 20px; }
+.wpragbot-bot-message h2 { font-size: 18px; }
+.wpragbot-bot-message h3 { font-size: 16px; }
 
 .wpragbot-bot-message a {
-    color: #4a6fa5;
+    color: var(--brand-red);
     text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
 }
 
 .wpragbot-bot-message a:hover {
-    color: #3a5a80;
+    color: var(--wpragbot-header-bg);
 }
 
 .wpragbot-chat-input-area {
     display: flex;
-    padding: 10px;
-    border-top: 1px solid #ddd;
-    background: #fff;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    border-top: 1px solid #EBEBEB;
+    background: #ffffff;
 }
 
 .wpragbot-chat-input-area input {
     flex: 1;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 20px;
+    min-height: 48px;
+    border: none;
+    border-radius: 0;
+    padding: 8px 0;
+    font-size: 15px;
+    color: #1A1A1A;
+    background: transparent;
     outline: none;
-    font-size: 14px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.wpragbot-chat-input-area input::placeholder {
+    color: #9AA0A6;
 }
 
 .wpragbot-chat-input-area button {
-    margin-left: 10px;
-    padding: 10px 20px;
+    min-height: 44px;
+    min-width: 44px;
+    width: 44px;
+    height: 44px;
     border: none;
-    border-radius: 20px;
-    background: #4a6fa5;
-    color: white;
+    border-radius: 50%;
+    background: var(--brand-red);
+    color: #fff;
+    padding: 0;
     cursor: pointer;
-    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
 }
 
-.wpragbot-chat-input-area button:hover {
-    background: #3a5a80;
+.wpragbot-chat-input-area button svg {
+    margin-right: 2px; /* slight visual balance for paper plane */
+    width: 20px;
+    height: 20px;
+}
+
+.wpragbot-chat-input-area button:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(227, 35, 27, 0.25);
+}
+
+.wpragbot-chat-input-area button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #ccc;
+    box-shadow: none;
 }
 
 .wpragbot-chat-toggle {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 60px;
-    height: 60px;
-    background: #4a6fa5;
+    bottom: 24px;
+    right: 24px;
+    width: 64px;
+    height: 64px;
+    background: var(--brand-red);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 8px 24px rgba(227, 35, 27, 0.35);
     z-index: 9998;
-    transition: transform 0.2s;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s;
+}
+
+.wpragbot-chat-toggle .wpragbot-logo-svg {
+    width: 36px;
+    height: 36px;
 }
 
 .wpragbot-chat-toggle:hover {
-    transform: scale(1.1);
+    transform: scale(1.05);
+    box-shadow: 0 12px 28px rgba(227, 35, 27, 0.45);
 }
 
-.wpragbot-chat-icon {
-    font-size: 24px;
-    color: white;
-}
-
-/* Loading animation */
-.wpragbot-loading {
-    display: inline-block;
-    width: 20px;
-    height: 20px;
-    border: 3px solid #f3f3f3;
-    border-top: 3px solid #4a6fa5;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    vertical-align: middle;
-    margin-right: 10px;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+/* Make sure the toggle has a slight message-tail point like a chat bubble */
+.wpragbot-chat-toggle::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: -2px;
+    border: 12px solid transparent;
+    border-top-color: var(--brand-red);
+    border-right-color: var(--brand-red);
+    border-radius: 4px;
+    transform: rotate(15deg);
+    z-index: -1;
 }
 
 /* Responsive design */
@@ -227,4 +366,76 @@
         width: 50px;
         height: 50px;
     }
+}
+
+@media (prefers-color-scheme: dark) {
+    .wpragbot-chat-container {
+        --wpragbot-bg: #1A1A1A;
+        --wpragbot-bg-solid: #1A1A1A;
+        --wpragbot-border: #333;
+        --wpragbot-user-bg: #2C2C2C;
+        --wpragbot-user-color: #f2f2f2;
+        --wpragbot-bot-color: #E8EAED;
+    }
+
+    .wpragbot-chat-messages {
+        background: #1A1A1A;
+    }
+
+    .wpragbot-chat-input-area {
+        background: #1A1A1A;
+        border-top-color: #333;
+    }
+
+    .wpragbot-chat-input-area input {
+        color: #f2f2f2;
+    }
+
+    .wpragbot-bot-message h1,
+    .wpragbot-bot-message h2,
+    .wpragbot-bot-message h3 {
+        color: #ffffff;
+    }
+
+    .wpragbot-bot-message hr {
+        border-top-color: #333;
+    }
+}
+
+@keyframes wpragbotFadeInScale {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes wpragbotSlideInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.wpragbot-animate-in {
+    animation: wpragbotSlideInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Typing Dots Animation */
+.wpragbot-typing-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 20px;
+    padding: 0 4px;
+}
+.wpragbot-typing-dots span {
+    width: 6px;
+    height: 6px;
+    background-color: currentColor;
+    border-radius: 50%;
+    animation: wpragbotTypingBounce 1.4s infinite ease-in-out both;
+    opacity: 0.6;
+}
+.wpragbot-typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+.wpragbot-typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes wpragbotTypingBounce {
+    0%, 80%, 100% { transform: scale(0); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
 }
