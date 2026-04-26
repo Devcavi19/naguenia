@@ -53,12 +53,9 @@ $settings = get_option('wpragbot_settings');
     </div>
 </div>
 
-<div id="wpragbot-chat-toggle" class="wpragbot-chat-toggle">
-    <svg class="wpragbot-logo-svg" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M11 11C11 11 10 3 17 5C17 5 19 6 18 10C24.5 9.5 32 12 32 24C32 30 28 35 24 35C24 35 27 34 26 31C26 31 16 35 10 26C8 23 8 18 11 11Z" fill="white"/>
-        <circle cx="21" cy="21" r="1.5" fill="#E3231B"/>
-        <circle cx="27" cy="21" r="1.5" fill="#E3231B"/>
-    </svg>
+<div id="wpragbot-chat-toggle" class="wpragbot-chat-toggle" role="button" aria-label="Open Chat" tabindex="0">
+    <div class="wpragbot-toggle-ripple"></div>
+    <img src="<?php echo esc_url(plugin_dir_url(dirname(__FILE__)) . 'images/i-Gov_Chatbot.ico'); ?>" alt="Chat Icon" class="wpragbot-toggle-icon" style="width: 44px !important; height: 44px !important; max-width: 44px !important; object-fit: contain; display: block;" />
 </div>
 
 <script>

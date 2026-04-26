@@ -59,7 +59,9 @@ class Wpragbot_Public {
      * @since    1.0.0
      */
     public function enqueue_styles() {
-        wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/wpragbot-public.css', array(), $this->version, 'all' );
+        $css_file = plugin_dir_path( __FILE__ ) . 'css/wpragbot-public.css';
+        $version = file_exists( $css_file ) ? filemtime( $css_file ) : $this->version;
+        wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/wpragbot-public.css', array(), $version, 'all' );
     }
 
     /**
