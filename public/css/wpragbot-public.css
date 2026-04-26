@@ -31,7 +31,9 @@
     position: fixed;
     bottom: 24px;
     right: 24px;
+    width: 400px;
     width: min(400px, 92vw);
+    height: 560px;
     height: min(560px, 92vh);
     background: var(--wpragbot-bg);
     border: 1px solid var(--wpragbot-border);
@@ -113,6 +115,7 @@
     padding: 20px 24px;
     gap: 16px;
     overflow-y: auto;
+    overflow-x: hidden;
     background: transparent;
     display: flex;
     flex-direction: column;
@@ -156,8 +159,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
-    white-space: pre-wrap;
     word-wrap: break-word;
+    overflow-wrap: break-word;
     font-size: 14px;
     transition: transform 0.2s ease, opacity 0.2s ease;
 }
@@ -171,6 +174,7 @@
     border-radius: 20px;
     max-width: 85%;
     font-weight: 500;
+    white-space: pre-wrap; /* preserve line-breaks in user typed text */
 }
 
 .wpragbot-bot-message {
@@ -185,6 +189,9 @@
     font-size: 15px;
     line-height: 1.6;
     display: block; /* Since it's full width editorial style */
+    overflow: visible;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 /* Markdown formatting styles */
@@ -205,6 +212,9 @@
     font-family: 'Courier New', monospace;
     font-size: 13px;
     color: #E3231B;
+    word-break: break-all;
+    overflow-wrap: break-word;
+    white-space: normal;
 }
 
 .wpragbot-bot-message ul {
@@ -264,7 +274,7 @@
     border: none;
     border-radius: 0;
     padding: 8px 0;
-    font-size: 15px;
+    font-size: 16px; /* 16px prevents iOS Safari auto-zoom on focus */
     color: #1A1A1A;
     background: transparent;
     outline: none;
@@ -368,8 +378,10 @@
 /* Responsive design */
 @media (max-width: 768px) {
     .wpragbot-chat-container {
-        width: 90%;
-        height: 80%;
+        width: calc(100vw - 20px);
+        max-width: 400px;
+        height: calc(100vh - 20px);
+        max-height: 560px;
         bottom: 10px;
         right: 10px;
     }
@@ -413,6 +425,11 @@
 
     .wpragbot-bot-message hr {
         border-top-color: #333;
+    }
+
+    .wpragbot-bot-message code {
+        background: #2C2C2C;
+        color: #FF6B6B;
     }
 
     .wpragbot-chat-toggle {

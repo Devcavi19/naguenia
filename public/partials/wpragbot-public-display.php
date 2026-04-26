@@ -51,7 +51,7 @@ $settings = get_option('wpragbot_settings');
 
 <div id="wpragbot-chat-toggle" class="wpragbot-chat-toggle" role="button" aria-label="Open Chat" tabindex="0">
     <div class="wpragbot-toggle-ripple"></div>
-    <img src="<?php echo esc_url(plugin_dir_url(dirname(__FILE__)) . 'images/i-Gov_Chatbot.ico'); ?>" alt="Chat Icon" class="wpragbot-toggle-icon" style="width: 44px !important; height: 44px !important; max-width: 44px !important; object-fit: contain; display: block;" />
+    <img src="<?php echo esc_url(plugin_dir_url(dirname(__FILE__)) . 'images/i-Gov_Chatbot.ico'); ?>" alt="Chat Icon" class="wpragbot-toggle-icon" draggable="false" style="width: 44px !important; height: 44px !important; max-width: 44px !important; object-fit: contain; display: block;" />
 </div>
 
 <script>

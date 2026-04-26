@@ -149,6 +149,8 @@ class Wpragbot_Public {
 
             // Sanitize response before sending to frontend
             $response['response'] = wp_kses_post($response['response']);
+            // Never send raw retrieval context to the browser
+            unset($response['context']);
             wp_send_json_success($response);
         }
     }
@@ -264,9 +266,43 @@ class Wpragbot_Public {
                 addMessage: function(message, type) {
                     var messageClass = (type === 'user') ? 'wpragbot-user-message' : 'wpragbot-bot-message';
                     var messageStyle = (type === 'user') ? 'background: #4a6fa5; color: white; margin-left: auto; text-align: right;' : 'background: #e9ecef; color: #333;';
-                    var messageHtml = '<div class="wpragbot-message ' + messageClass + '" style="' + messageStyle + ' padding: 10px 15px; border-radius: 18px; max-width: 80%; word-wrap: break-word; margin-bottom: 15px;">' + message + '</div>';
+
+                    // Sanitize: always escape first, then parse markdown for bot messages
+                    var formattedMessage;
+                    if (type === 'bot') {
+                        formattedMessage = shortcodeChat.parseMarkdown(message);
+                    } else {
+                        formattedMessage = '<span>' + shortcodeChat.escapeHtml(message) + '</span>';
+                    }
+
+                    var messageHtml = '<div class="wpragbot-message ' + messageClass + '" style="' + messageStyle + ' padding: 10px 15px; border-radius: 18px; max-width: 80%; word-wrap: break-word; overflow-wrap: break-word; margin-bottom: 15px;">' + formattedMessage + '</div>';
                     $('#wpragbot-chat-messages-shortcode').append(messageHtml);
                     $('#wpragbot-chat-messages-shortcode').scrollTop($('#wpragbot-chat-messages-shortcode')[0].scrollHeight);
+                },
+                escapeHtml: function(text) {
+                    return $('<div>').text(text).html();
+                },
+                parseMarkdown: function(text) {
+                    var html = this.escapeHtml(text);
+                    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                    html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+                    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+                    html = html.replace(/_(.+?)_/g, '<em>$1</em>');
+                    html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+                    html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, function(_, label, href) {
+                        var safeHref = href.trim();
+                        if (/^javascript:/i.test(safeHref)) { safeHref = '#'; }
+                        return '<a href="' + safeHref + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+                    });
+                    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+                    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+                    html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+                    html = html.replace(/\n/g, '<br>');
+                    html = html.replace(/<br>[-•]\s+(.+?)(?=<br>|$)/g, '<br><li>$1</li>');
+                    html = html.replace(/(<li>.*?<\/li>)+/g, function(match) {
+                        return '<ul>' + match + '</ul>';
+                    });
+                    return html;
                 },
                 addLoadingIndicator: function() {
                     var loadingHtml = '<div class="wpragbot-message wpragbot-bot-message" style="background: #e9ecef; color: #333; padding: 10px 15px; border-radius: 18px; max-width: 80%; margin-bottom: 15px;"><span class="wpragbot-loading" style="display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #4a6fa5; border-radius: 50%; animation: spin 1s linear infinite;"></span> Thinking...</div>';
