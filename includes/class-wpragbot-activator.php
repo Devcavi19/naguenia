@@ -34,7 +34,7 @@ class Wpragbot_Activator {
             'qdrant_url' => '',
             'qdrant_api_key' => '',
             'collection_name' => 'knowledge_base',
-            'system_prompt' => 'You are a helpful assistant. Use the provided context to answer questions accurately.'
+            'system_prompt' => "You are a helpful assistant. Answer only using the provided context. If the context does not contain enough information, say 'I don't have enough information in the provided documents to answer this question.' Do not guess or invent facts. Cite the relevant context when possible."
         );
 
         add_option('wpragbot_settings', $default_settings);

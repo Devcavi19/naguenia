@@ -138,7 +138,10 @@ class Wpragbot_API {
             $body = array(
                 'model' => $this->get_model_name($ai_provider),
                 'messages' => $messages,
-                'temperature' => 0.7,
+                'temperature' => 0.2,
+                'top_p' => 0.9,
+                'frequency_penalty' => 0.0,
+                'presence_penalty' => 0.0,
                 'max_tokens' => 1024,
             );
 
@@ -438,6 +441,15 @@ class Wpragbot_API {
             
             error_log('WPRAGBot: Context length: ' . strlen($context) . ' characters');
 
+            if (empty($context)) {
+                error_log('WPRAGBot: No relevant context found; returning safe fallback response');
+                return array(
+                    'response' => 'I don\'t have enough information in the provided documents to answer this question.',
+                    'context' => '',
+                    'session_id' => $session_id,
+                );
+            }
+
             // 4. Prepare chat history and summaries
             $all_messages = $this->get_prompt_history($session_id);
             $count = count($all_messages);
@@ -461,13 +473,17 @@ class Wpragbot_API {
             // 5. Build final messages array
             $final_messages = array();
             
-            $system_prompt = $settings['system_prompt'] ?? '';
-            if (!empty($system_prompt)) {
-                $final_messages[] = array(
-                    'role' => 'system',
-                    'content' => $system_prompt
-                );
+            $system_prompt = trim($settings['system_prompt'] ?? '');
+            if (empty($system_prompt)) {
+                $system_prompt = "You are a helpful assistant. Answer only using the provided context. " .
+                                 "If the context does not contain enough information, say 'I don't have enough information in the provided documents to answer this question.' " .
+                                 "Do not guess or invent facts. Cite the relevant context when possible.";
             }
+
+            $final_messages[] = array(
+                'role' => 'system',
+                'content' => $system_prompt
+            );
 
             $context_block = "";
             if (!empty($context)) {
