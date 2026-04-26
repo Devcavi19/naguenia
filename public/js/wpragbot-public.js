@@ -21,7 +21,6 @@
         var chatWidget = {
             init: function() {
                 this.bindEvents();
-                this.setupDrag();
                 this.updateNetworkStatus();
                 this.loadConversation();
 
@@ -86,35 +85,7 @@
                 });
             },
 
-            setupDrag: function() {
-                // Make chat widget draggable
-                var $chatContainer = $('#wpragbot-chat-container');
-                var $chatHeader = $('.wpragbot-chat-header');
-                var pos = {x: 0, y: 0};
 
-                $chatHeader.on('mousedown', function(e) {
-                    pos.x = e.clientX - $chatContainer.offset().left;
-                    pos.y = e.clientY - $chatContainer.offset().top;
-                    $chatContainer.addClass('dragging');
-                    $(document).on('mousemove', mouseMoveHandler);
-                    $(document).on('mouseup', mouseUpHandler);
-                });
-
-                function mouseMoveHandler(e) {
-                    if ($chatContainer.hasClass('dragging')) {
-                        $chatContainer.css({
-                            left: e.clientX - pos.x + 'px',
-                            top: e.clientY - pos.y + 'px'
-                        });
-                    }
-                }
-
-                function mouseUpHandler() {
-                    $chatContainer.removeClass('dragging');
-                    $(document).off('mousemove', mouseMoveHandler);
-                    $(document).off('mouseup', mouseUpHandler);
-                }
-            },
 
             sendMessage: function(forceMessage) {
                 var $input = $('#wpragbot-user-input');

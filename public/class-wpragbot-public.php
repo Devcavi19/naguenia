@@ -70,7 +70,9 @@ class Wpragbot_Public {
      * @since    1.0.0
      */
     public function enqueue_scripts() {
-        wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/wpragbot-public.js', array( 'jquery' ), $this->version, false );
+        $js_file = plugin_dir_path( __FILE__ ) . 'js/wpragbot-public.js';
+        $version = file_exists( $js_file ) ? filemtime( $js_file ) : $this->version;
+        wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/wpragbot-public.js', array( 'jquery' ), $version, false );
 
         // Localize script for AJAX
         wp_localize_script( $this->plugin_name, 'wpragbot_ajax', array(
