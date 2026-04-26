@@ -1,4 +1,5 @@
 <?php
+defined( 'ABSPATH' ) || exit;
 
 /**
  * The file that defines the embedding functionality for Hugging Face Ollama All-MiniLM L6 v2

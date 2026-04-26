@@ -1,4 +1,5 @@
 <?php
+defined( 'ABSPATH' ) || exit;
 
 /**
  * The file that defines the admin-specific functionality
@@ -190,7 +191,11 @@ class Wpragbot_Admin {
     public function display_plugin_settings_page() {
         // Handle analytics export if requested
         if (isset($_GET['action']) && $_GET['action'] === 'export_analytics' && current_user_can('manage_options')) {
-            $this->handle_analytics_export();
+            if ( isset( $_GET['nonce'] ) && wp_verify_nonce( wp_unslash( $_GET['nonce'] ), 'wpragbot_export_analytics' ) ) {
+                $this->handle_analytics_export();
+            } else {
+                wp_die( esc_html__( 'Security check failed.', 'wpragbot' ) );
+            }
             return;
         }
 
@@ -308,26 +313,8 @@ class Wpragbot_Admin {
      * @since    1.0.0
      */
     public function handle_document_upload() {
-        // Verify nonce
-        if ( !isset( $_POST['nonce'] ) || !wp_verify_nonce( $_POST['nonce'], 'wpragbot_admin_nonce' ) ) {
-            wp_send_json_error( array( 'message' => 'Security check failed' ) );
-            return;
-        }
-
-        // Check user capabilities
-        if ( !current_user_can( 'manage_options' ) ) {
-            wp_send_json_error( array( 'message' => 'Insufficient permissions' ) );
-            return;
-        }
-
-        // Check if file was uploaded
-        if ( !isset( $_FILES['wpragbot_document_file'] ) || $_FILES['wpragbot_document_file']['error'] !== UPLOAD_ERR_OK ) {
-            wp_send_json_error( array( 'message' => 'No file uploaded or upload error' ) );
-            return;
-        }
-
-        $file = $_FILES['wpragbot_document_file'];
-        $title = isset( $_POST['wpragbot_document_title'] ) ? sanitize_text_field( $_POST['wpragbot_document_title'] ) : '';
+        wp_send_json_error( array( 'message' => 'Document upload functionality is disabled in this version.' ) );
+        return;
 
         // Validate file type
         $allowed_types = array( 'text/plain', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/markdown' );

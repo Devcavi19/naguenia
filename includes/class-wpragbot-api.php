@@ -1,4 +1,5 @@
 <?php
+defined( 'ABSPATH' ) || exit;
 
 /**
  * The file that defines the API integration functionality
@@ -529,9 +530,15 @@ class Wpragbot_API {
      * @return   array|WP_Error                Found documents or error
      */
     private function search_documents($query_embedding, $qdrant_url, $collection_name, $api_key) {
-        if (empty($qdrant_url) || empty($collection_name)) {
-            error_log('WPRAGBot: Missing Qdrant configuration - URL: ' . ($qdrant_url ? 'set' : 'empty') . ', Collection: ' . ($collection_name ? $collection_name : 'empty'));
-            return new WP_Error('missing_qdrant_config', 'Qdrant URL and collection name are required');
+        $qdrant_url = trim( $qdrant_url );
+        if ( empty( $qdrant_url ) || empty( $collection_name ) ) {
+            error_log( 'WPRAGBot: Missing Qdrant configuration - URL: ' . ( $qdrant_url ? 'set' : 'empty' ) . ', Collection: ' . ( $collection_name ? $collection_name : 'empty' ) );
+            return new WP_Error( 'missing_qdrant_config', 'Qdrant URL and collection name are required' );
+        }
+
+        if ( ! filter_var( $qdrant_url, FILTER_VALIDATE_URL ) || ! wp_http_validate_url( $qdrant_url ) ) {
+            error_log( 'WPRAGBot: Invalid Qdrant URL provided.' );
+            return new WP_Error( 'invalid_qdrant_url', 'Invalid Qdrant URL provided' );
         }
 
         if (empty($query_embedding) || !is_array($query_embedding)) {
@@ -562,9 +569,6 @@ class Wpragbot_API {
         // Add API key if provided
         if (!empty($api_key)) {
             $headers['api-key'] = $api_key;
-            error_log('WPRAGBot: Using Qdrant API key: ' . (strlen($api_key) > 0 ? 'SET (length: ' . strlen($api_key) . ')' : 'EMPTY'));
-        } else {
-            error_log('WPRAGBot: No Qdrant API key provided - attempting unauthenticated request');
         }
 
         error_log('WPRAGBot: Request body: ' . wp_json_encode(array(

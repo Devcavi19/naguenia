@@ -206,8 +206,9 @@ $settings = get_option('wpragbot_settings');
             <?php endif; ?>
 
             <div style="margin-top: 20px;">
-                <a href="<?php echo admin_url('options-general.php?page=wpragbot&action=export_analytics'); ?>" class="button">Export Data (CSV)</a>
-                <a href="<?php echo admin_url('options-general.php?page=wpragbot&action=export_analytics&format=json'); ?>" class="button">Export Data (JSON)</a>
+                <?php $export_nonce = wp_create_nonce( 'wpragbot_export_analytics' ); ?>
+                <a href="<?php echo esc_url( admin_url( 'options-general.php?page=wpragbot&action=export_analytics&nonce=' . $export_nonce ) ); ?>" class="button">Export Data (CSV)</a>
+                <a href="<?php echo esc_url( admin_url( 'options-general.php?page=wpragbot&action=export_analytics&format=json&nonce=' . $export_nonce ) ); ?>" class="button">Export Data (JSON)</a>
             </div>
         </div>
     </div>

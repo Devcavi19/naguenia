@@ -1,4 +1,5 @@
 <?php
+defined( 'ABSPATH' ) || exit;
 
 /**
  * The file that defines the public-facing functionality
@@ -136,7 +137,8 @@ class Wpragbot_Public {
         $response = $api_handler->process_chat_request($message, $session_id, $settings);
 
         if (is_wp_error($response)) {
-            wp_send_json_error($response->get_error_message());
+            error_log( 'WPRAGBot: Chat handler error: ' . $response->get_error_message() );
+            wp_send_json_error( 'Unable to generate a response at this time. Please try again later.' );
         } else {
             // Track the interaction in analytics
             $analytics = new Wpragbot_Analytics();
