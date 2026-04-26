@@ -20,13 +20,9 @@ $settings = get_option('wpragbot_settings');
 
 <div id="wpragbot-chat-container" class="wpragbot-chat-container" role="dialog" aria-label="AI chat assistant" aria-modal="false" hidden>
     <div class="wpragbot-chat-header">
-        <div class="wpragbot-header-brand">
-            <svg class="wpragbot-logo-svg" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M11 11C11 11 10 3 17 5C17 5 19 6 18 10C24.5 9.5 32 12 32 24C32 30 28 35 24 35C24 35 27 34 26 31C26 31 16 35 10 26C8 23 8 18 11 11Z" fill="white"/>
-                <circle cx="21" cy="21" r="1.5" fill="#E3231B"/>
-                <circle cx="27" cy="21" r="1.5" fill="#E3231B"/>
-            </svg>
-            <span class="wpragbot-chat-title">NaguenIA</span>
+        <div class="wpragbot-header-brand" style="display: flex; align-items: center; gap: 0;">
+            <img src="<?php echo esc_url(plugin_dir_url(dirname(__FILE__)) . 'images/i-Gov_Chatbot_h1.ico'); ?>" alt="N" class="wpragbot-header-n-icon" style="height: 24px; width: auto; object-fit: contain; margin-right: 1px; flex-shrink: 0;" />
+            <span class="wpragbot-chat-title" style="margin-left: 0; line-height: 1;">aguenIA</span>
         </div>
         <div class="wpragbot-chat-header-actions">
             <button class="wpragbot-chat-close" type="button" aria-label="Close chat">
