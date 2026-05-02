@@ -99,8 +99,16 @@ class Wpragbot_Admin {
      * @since    1.0.0
      */
     public function settings_init() {
-        // Register settings
-        register_setting( $this->plugin_name, 'wpragbot_settings' );
+        // Register settings with proper sanitization callback
+        register_setting( 
+            $this->plugin_name, 
+            'wpragbot_settings',
+            array(
+                'type'              => 'array',
+                'sanitize_callback' => array( $this, 'sanitize_settings' ),
+                'show_in_rest'      => false
+            )
+        );
 
         // Add settings sections
         add_settings_section(
@@ -181,6 +189,50 @@ class Wpragbot_Admin {
             $this->plugin_name,
             'wpragbot_api_settings'
         );
+    }
+
+    /**
+     * Sanitize and validate plugin settings.
+     *
+     * @since    1.0.0
+     * @param    array    $input    The settings array from the form
+     * @return   array             Sanitized settings array
+     */
+    public function sanitize_settings( $input ) {
+        if ( ! is_array( $input ) ) {
+            return array();
+        }
+
+        $sanitized = array();
+
+        // Sanitize each field appropriately
+        if ( isset( $input['ai_provider'] ) ) {
+            $sanitized['ai_provider'] = sanitize_text_field( $input['ai_provider'] );
+        }
+
+        if ( isset( $input['api_key'] ) ) {
+            $sanitized['api_key'] = sanitize_text_field( $input['api_key'] );
+        }
+
+        if ( isset( $input['qdrant_url'] ) ) {
+            $sanitized['qdrant_url'] = esc_url( $input['qdrant_url'] );
+        }
+
+        if ( isset( $input['qdrant_api_key'] ) ) {
+            $sanitized['qdrant_api_key'] = sanitize_text_field( $input['qdrant_api_key'] );
+        }
+
+        if ( isset( $input['collection_name'] ) ) {
+            $sanitized['collection_name'] = sanitize_text_field( $input['collection_name'] );
+        }
+
+        // Important: Use wp_kses_post for system_prompt to allow formatting but remove harmful tags
+        if ( isset( $input['system_prompt'] ) ) {
+            $sanitized['system_prompt'] = wp_kses_post( $input['system_prompt'] );
+            error_log('WPRAGBot Admin: System prompt updated - Length: ' . strlen( $sanitized['system_prompt'] ) . ' characters');
+        }
+
+        return $sanitized;
     }
 
     /**

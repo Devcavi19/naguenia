@@ -393,6 +393,17 @@ class Wpragbot_API {
     private $timeout = 60;
 
     /**
+     * Get the default system prompt used as a fallback.
+     * This should match the one set during plugin activation.
+     *
+     * @since    1.0.0
+     * @return   string    The default system prompt
+     */
+    private function get_default_system_prompt() {
+        return "You are a helpful, intelligent AI assistant. Your primary goal is to provide accurate, well-structured, and informative responses that are truly helpful to users.\n\nCRITICAL GUIDELINES:\n\n1. **CONTEXT IS KING**: Always prefer and prioritize the provided context to answer questions accurately. When relevant context is available, use it extensively and cite specific information from it.\n\n2. **RECOGNIZE QUESTION TYPES**:\n   - **Greetings/Small Talk** (e.g., 'Hello', 'Hi', 'How are you?'): Respond naturally and conversationally WITHOUT needing any context.\n   - **Meta/Help Questions** (e.g., 'What can you do?', 'Help me'): Answer based on your capabilities as stated by the system.\n   - **Factual Questions**: If context is provided, USE IT. If NO context is provided and you're uncertain, inform the user you don't have that specific information in the knowledge base.\n\n3. **RESPONSE EXCELLENCE**:\n   - Provide comprehensive, well-organized responses\n   - Use clear headers, bullet points, and numbered lists for clarity\n   - Include examples when helpful\n   - End with follow-up suggestions or related questions\n   - Format with Markdown: **bold** for emphasis, `code` for technical terms, proper links\n   - ALWAYS complete sentences—never cut off mid-sentence\n\n4. **ACCURACY OVER CREATIVITY**:\n   - Trust provided context implicitly. If context says something specific, state it exactly.\n   - DO NOT hallucinate or invent information not in the provided context for factual questions.\n   - If you lack context for a factual question, admit it clearly: 'I don't have information about [topic] in my knowledge base.'\n\n5. **HANDLE MISSING CONTEXT GRACEFULLY**:\n   - When context is absent for a factual query, offer to help differently: 'I don't have specific documents about [topic]. Would you like me to explain the general concept?'\n   - Never refuse to help if you CAN help responsibly.\n\nYour tone should be professional yet approachable, always prioritizing user value and accuracy.";
+    }
+
+    /**
      * Initialize the class and set its properties.
      *
      * @since    1.0.0
@@ -400,6 +411,139 @@ class Wpragbot_API {
     public function __construct() {
     }
 
+    /**
+     * Generate response for greetings/meta-questions using custom system prompt.
+     * This method bypasses document search and uses the admin-defined system prompt.
+     *
+     * @since    1.0.0
+     * @param    string    $message        The user's message (greeting or meta-question)
+     * @param    string    $session_id     The user session ID
+     * @param    array     $settings       Plugin settings
+     * @return   array|WP_Error            Response data or error
+     */
+    private function generate_response_for_greeting($message, $session_id, $settings) {
+        try {
+            // Get custom system prompt from admin panel
+            $system_prompt = trim($settings['system_prompt'] ?? '');
+            if (empty($system_prompt)) {
+                $system_prompt = $this->get_default_system_prompt();
+                error_log('WPRAGBot: Using default system prompt for greeting (admin setting was empty)');
+            } else {
+                error_log('WPRAGBot: Using custom system prompt from WordPress admin panel for greeting');
+            }
+
+            // Build messages array WITHOUT context for greeting
+            $final_messages = array();
+            
+            $final_messages[] = array(
+                'role' => 'system',
+                'content' => $system_prompt
+            );
+
+            // Add user message WITHOUT context block
+            $final_messages[] = array(
+                'role' => 'user',
+                'content' => $message
+            );
+
+            // Generate response using the custom system prompt
+            $response = $this->generate_response_with_messages(
+                $final_messages,
+                $settings['api_key'],
+                $settings['ai_provider']
+            );
+
+            if (is_wp_error($response)) {
+                error_log('WPRAGBot: Response generation failed for greeting: ' . $response->get_error_message());
+                return $response;
+            }
+
+            error_log('WPRAGBot: Successfully generated greeting response');
+
+            // Return the response
+            return array(
+                'response' => $response,
+                'context' => '',
+                'session_id' => $session_id
+            );
+
+        } catch (Exception $e) {
+            error_log('WPRAGBot: Exception in generate_response_for_greeting: ' . $e->getMessage());
+            return new WP_Error('greeting_response_error', 'Error generating greeting response: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Detect if a message is a simple greeting or meta-question.
+     *
+     * @since    1.0.0
+     * @param    string    $message    The user's message
+     * @return   bool                  True if greeting/meta, false otherwise
+     */
+    private function is_greeting_or_meta_query($message) {
+        $message_lower = strtolower(trim($message));
+        
+        // Greetings
+        $greetings = array(
+            'hello',
+            'hi',
+            'hey',
+            'greetings',
+            'good morning',
+            'good afternoon',
+            'good evening',
+            'good night',
+            'howdy',
+            'sup',
+            'yo',
+            'hi there',
+            'hello there',
+            'how are you',
+            'what\'s up',
+            'how do you do',
+        );
+
+        // Meta/help questions
+        $meta_questions = array(
+            'who are you',
+            'what are you',
+            'what can you do',
+            'what can you help',
+            'help',
+            'help me',
+            'what do you do',
+            'tell me about yourself',
+            'introduce yourself',
+            'what is this',
+            'how do i use',
+            'how to use',
+            'what is the',
+            'what\'s this',
+        );
+
+        // Check if message matches any greeting or meta pattern
+        foreach ($greetings as $greeting) {
+            if ($message_lower === $greeting || strpos($message_lower, $greeting) === 0) {
+                return true;
+            }
+        }
+
+        foreach ($meta_questions as $meta) {
+            if (strpos($message_lower, $meta) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get a friendly bot introduction message.
+     *
+     * @since    1.0.0
+     * @param    array     $settings    Plugin settings
+     * @return   string                 Bot introduction message
+     */
     /**
      * Process a chat request through the RAG pipeline.
      *
@@ -415,6 +559,15 @@ class Wpragbot_API {
             error_log('WPRAGBot: Settings check - Provider: ' . (empty($settings['ai_provider']) ? 'MISSING' : $settings['ai_provider']) . 
                       ', Qdrant URL: ' . (empty($settings['qdrant_url']) ? 'MISSING' : $settings['qdrant_url']) . 
                       ', Collection: ' . (empty($settings['collection_name']) ? 'MISSING' : $settings['collection_name']));
+            
+            // Check if this is a simple greeting or meta-question FIRST
+            $is_greeting_or_meta = $this->is_greeting_or_meta_query($message);
+            
+            if ($is_greeting_or_meta) {
+                error_log('WPRAGBot: Greeting/meta-query detected - skipping document search, using system prompt to generate response');
+                // For greetings and meta-questions, skip document search and go straight to LLM with custom system prompt
+                return $this->generate_response_for_greeting($message, $session_id, $settings);
+            }
             
             // 1. Generate embedding for the user message
             $query_embedding = $this->generate_embedding($message, $settings['api_key'], $settings['ai_provider'], 'retrieval_query');
@@ -475,28 +628,11 @@ class Wpragbot_API {
             
             $system_prompt = trim($settings['system_prompt'] ?? '');
             if (empty($system_prompt)) {
-                $system_prompt = "You are a helpful, intelligent AI assistant. Your primary goal is to provide accurate, well-structured, and informative responses that are truly helpful to users.\n\n" .
-                                 "CRITICAL GUIDELINES:\n\n" .
-                                 "1. **CONTEXT IS KING**: Always prefer and prioritize the provided context to answer questions accurately. When relevant context is available, use it extensively and cite specific information from it.\n\n" .
-                                 "2. **RECOGNIZE QUESTION TYPES**:\n" .
-                                 "   - **Greetings/Small Talk** (e.g., 'Hello', 'Hi', 'How are you?'): Respond naturally and conversationally WITHOUT needing any context.\n" .
-                                 "   - **Meta/Help Questions** (e.g., 'What can you do?', 'Help me'): Answer based on your capabilities as stated by the system.\n" .
-                                 "   - **Factual Questions**: If context is provided, USE IT. If NO context is provided and you're uncertain, inform the user you don't have that specific information in the knowledge base.\n\n" .
-                                 "3. **RESPONSE EXCELLENCE**:\n" .
-                                 "   - Provide comprehensive, well-organized responses\n" .
-                                 "   - Use clear headers, bullet points, and numbered lists for clarity\n" .
-                                 "   - Include examples when helpful\n" .
-                                 "   - End with follow-up suggestions or related questions\n" .
-                                 "   - Format with Markdown: **bold** for emphasis, `code` for technical terms, proper links\n" .
-                                 "   - ALWAYS complete sentences—never cut off mid-sentence\n\n" .
-                                 "4. **ACCURACY OVER CREATIVITY**:\n" .
-                                 "   - Trust provided context implicitly. If context says something specific, state it exactly.\n" .
-                                 "   - DO NOT hallucinate or invent information not in the provided context for factual questions.\n" .
-                                 "   - If you lack context for a factual question, admit it clearly: 'I don't have information about [topic] in my knowledge base.'\n\n" .
-                                 "5. **HANDLE MISSING CONTEXT GRACEFULLY**:\n" .
-                                 "   - When context is absent for a factual query, offer to help differently: 'I don't have specific documents about [topic]. Would you like me to explain the general concept?'\n" .
-                                 "   - Never refuse to help if you CAN help responsibly.\n\n" .
-                                 "Your tone should be professional yet approachable, always prioritizing user value and accuracy.";
+                // Use the default system prompt from the centralized method
+                $system_prompt = $this->get_default_system_prompt();
+                error_log('WPRAGBot: Using default system prompt (admin setting was empty)');
+            } else {
+                error_log('WPRAGBot: Using custom system prompt from WordPress admin panel (length: ' . strlen($system_prompt) . ' chars)');
             }
 
             $final_messages[] = array(
