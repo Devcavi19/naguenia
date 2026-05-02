@@ -22,7 +22,7 @@
             init: function() {
                 this.bindEvents();
                 this.updateNetworkStatus();
-                this.loadConversation();
+                this.clearConversation();
 
                 var self = this;
                 window.addEventListener('online', function() {
@@ -298,40 +298,17 @@
             },
 
             saveConversation: function() {
+                // Conversation is not persisted. Session lives only for this page load.
+                // On reload, a fresh conversation starts.
                 if (!this.history) {
                     this.history = [];
                 }
-                localStorage.setItem('wpragbot_chat_history', JSON.stringify(this.history));
             },
 
             loadConversation: function() {
-                var rawData = localStorage.getItem('wpragbot_chat_history');
-                var $messages = $('#wpragbot-chat-messages');
-
-                if (!rawData) {
-                    this.clearConversation();
-                    return;
-                }
-
-                try {
-                    var history = JSON.parse(rawData);
-                    if (!Array.isArray(history) || history.length === 0) {
-                        this.clearConversation();
-                        return;
-                    }
-
-                    this.history = [];
-                    $messages.empty();
-
-                    history.forEach(function(item) {
-                        chatWidget.addMessage(item.text, item.type, false);
-                    });
-
-                    this.setStatus('Connected', false);
-                    this.scrollToBottom();
-                } catch (e) {
-                    this.clearConversation();
-                }
+                // DEPRECATED: Conversations are no longer persisted.
+                // This method is kept for backward compatibility but is a no-op.
+                this.clearConversation();
             },
 
             updateNetworkStatus: function() {
