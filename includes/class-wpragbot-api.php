@@ -727,10 +727,10 @@ class Wpragbot_API {
 
         $body = array(
             'vector' => $query_embedding,
-            'limit' => 10,
+            'limit' => 3,
             'with_payload' => true,
             'with_vector' => false,
-            'score_threshold' => 0.5,
+            'score_threshold' => 0.3,
         );
 
         $headers = array(
@@ -744,7 +744,8 @@ class Wpragbot_API {
 
         error_log('WPRAGBot: Request body: ' . wp_json_encode(array(
             'vector_dimension' => count($query_embedding),
-            'limit' => 10,
+            'limit' => 3,
+            'score_threshold' => 0.3,
             'with_payload' => true
         )));
 
@@ -793,12 +794,8 @@ class Wpragbot_API {
                 $content = $result['payload']['content'];
             }
             
-            // Debug: Log payload structure for first result
-            if (count($documents) === 0) {
-                error_log('WPRAGBot: First document payload keys: ' . implode(', ', array_keys($result['payload'] ?? array())));
-                error_log('WPRAGBot: First document content length: ' . strlen($content));
-                error_log('WPRAGBot: First document content preview: ' . substr($content, 0, 100));
-            }
+            // Debug: Log score and content info for each document
+            error_log('WPRAGBot: Document score: ' . (isset($result['score']) ? $result['score'] : 'N/A') . ', Content length: ' . strlen($content));
             
             $documents[] = array(
                 'id' => $result['id'],
@@ -808,7 +805,7 @@ class Wpragbot_API {
             );
         }
         
-        error_log('WPRAGBot: Retrieved ' . count($documents) . ' documents from Qdrant');
+        error_log('WPRAGBot: Retrieved ' . count($documents) . ' documents from Qdrant (threshold: 0.3)');
 
         return $documents;
     }
