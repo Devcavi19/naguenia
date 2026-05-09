@@ -25,12 +25,17 @@ class Wpragbot_Embedding {
     /**
      * Embedding API endpoint
      */
-    private $embedding_endpoint = 'https://devcavi19-hf-all-minilm-l6-v2-wp-api.hf.space/embed';
+    private $embedding_endpoint;
 
     /**
      * Batch embedding API endpoint
      */
-    private $batch_embedding_endpoint = 'https://devcavi19-hf-all-minilm-l6-v2-wp-api.hf.space/embed/batch';
+    private $batch_embedding_endpoint;
+
+    /**
+     * Health check endpoint base URL
+     */
+    private $health_check_endpoint;
 
     /**
      * API timeout in seconds
@@ -43,6 +48,20 @@ class Wpragbot_Embedding {
      * @since    1.0.0
      */
     public function __construct() {
+        // Get embedder settings from WordPress options
+        $settings = get_option( 'wpragbot_settings' );
+
+        // Set endpoints from settings or use defaults
+        $this->embedding_endpoint = isset( $settings['embedding_endpoint'] ) && ! empty( $settings['embedding_endpoint'] )
+            ? $settings['embedding_endpoint']
+            : 'https://devcavi19-hf-all-minilm-l6-v2-wp-api.hf.space/embed';
+
+        $this->batch_embedding_endpoint = isset( $settings['embedding_batch_endpoint'] ) && ! empty( $settings['embedding_batch_endpoint'] )
+            ? $settings['embedding_batch_endpoint']
+            : 'https://devcavi19-hf-all-minilm-l6-v2-wp-api.hf.space/embed/batch';
+
+        // Extract base URL for health check (remove /embed or /embed/batch)
+        $this->health_check_endpoint = preg_replace( '/(\/embed\/batch|\/embed)$/i', '', $this->embedding_endpoint ) . '/health';
     }
 
     /**
@@ -136,17 +155,15 @@ class Wpragbot_Embedding {
      * @return   bool|WP_Error             True if healthy, WP_Error on failure
      */
     public function health_check() {
-        $url = 'https://devcavi19-hf-all-minilm-l6-v2-wp-api.hf.space/health';
-
-        $response = wp_remote_get($url, array(
+        $response = wp_remote_get( $this->health_check_endpoint, array(
             'timeout' => $this->timeout,
             'user-agent' => 'WordPress Plugin WPRAGBot',
-        ));
+        ) );
 
-        if (is_wp_error($response)) {
-            return new WP_Error('health_check_failed', 'Failed to connect to embedding API: ' . $response->get_error_message());
+        if ( is_wp_error( $response ) ) {
+            return new WP_Error( 'health_check_failed', 'Failed to connect to embedding API: ' . $response->get_error_message() );
         }
 
-        return wp_remote_retrieve_response_code($response) === 200;
+        return wp_remote_retrieve_response_code( $response ) === 200;
     }
 }

@@ -189,6 +189,22 @@ class Wpragbot_Admin {
             $this->plugin_name,
             'wpragbot_api_settings'
         );
+
+        add_settings_field(
+            'wpragbot_embedding_endpoint',
+            'Embedding API Endpoint',
+            array( $this, 'embedding_endpoint_render' ),
+            $this->plugin_name,
+            'wpragbot_api_settings'
+        );
+
+        add_settings_field(
+            'wpragbot_embedding_batch_endpoint',
+            'Embedding Batch API Endpoint',
+            array( $this, 'embedding_batch_endpoint_render' ),
+            $this->plugin_name,
+            'wpragbot_api_settings'
+        );
     }
 
     /**
@@ -230,6 +246,14 @@ class Wpragbot_Admin {
         if ( isset( $input['system_prompt'] ) ) {
             $sanitized['system_prompt'] = wp_kses_post( $input['system_prompt'] );
             error_log('WPRAGBot Admin: System prompt updated - Length: ' . strlen( $sanitized['system_prompt'] ) . ' characters');
+        }
+
+        if ( isset( $input['embedding_endpoint'] ) ) {
+            $sanitized['embedding_endpoint'] = esc_url( $input['embedding_endpoint'] );
+        }
+
+        if ( isset( $input['embedding_batch_endpoint'] ) ) {
+            $sanitized['embedding_batch_endpoint'] = esc_url( $input['embedding_batch_endpoint'] );
         }
 
         return $sanitized;
@@ -357,6 +381,20 @@ class Wpragbot_Admin {
         $options = get_option( 'wpragbot_settings' );
         $collection = isset( $options['collection_name'] ) ? $options['collection_name'] : '';
         echo '<input type="text" name="wpragbot_settings[collection_name]" value="' . esc_attr( $collection ) . '" class="regular-text" />';
+    }
+
+    public function embedding_endpoint_render() {
+        $options = get_option( 'wpragbot_settings' );
+        $endpoint = isset( $options['embedding_endpoint'] ) ? $options['embedding_endpoint'] : '';
+        echo '<input type="url" name="wpragbot_settings[embedding_endpoint]" value="' . esc_attr( $endpoint ) . '" class="regular-text" />';
+        echo '<p class="description">The API endpoint for single text embeddings. Example: https://your-embedding-api.com/embed</p>';
+    }
+
+    public function embedding_batch_endpoint_render() {
+        $options = get_option( 'wpragbot_settings' );
+        $endpoint = isset( $options['embedding_batch_endpoint'] ) ? $options['embedding_batch_endpoint'] : '';
+        echo '<input type="url" name="wpragbot_settings[embedding_batch_endpoint]" value="' . esc_attr( $endpoint ) . '" class="regular-text" />';
+        echo '<p class="description">The API endpoint for batch text embeddings. Example: https://your-embedding-api.com/embed/batch</p>';
     }
 
     /**
