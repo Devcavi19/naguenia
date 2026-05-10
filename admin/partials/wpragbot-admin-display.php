@@ -76,14 +76,28 @@ $settings = get_option('wpragbot_settings');
     </div>
 
     <h2>Analytics Dashboard</h2>
-    <p>View chatbot usage statistics and performance metrics.</p>
-
     <?php
     // Get analytics data
-    $analytics = new Wpragbot_Analytics();
-    $statistics = $analytics->get_chat_statistics(30);
-    $trends = $analytics->get_usage_trends(30);
+    $analytics       = new Wpragbot_Analytics();
+    $statistics      = $analytics->get_chat_statistics(30);
+    $trends          = $analytics->get_usage_trends(30);
     $recent_sessions = $analytics->get_recent_sessions(5);
+
+    // Show which data source is active
+    $data_source = isset( $statistics['source'] ) ? $statistics['source'] : 'unknown';
+    if ( $data_source === 'supabase' ) {
+        echo '<div class="notice notice-success inline" style="margin:8px 0;padding:6px 12px;">'
+           . '<strong>&#x2705; Data source: Supabase (naguenia)</strong> — analytics are reading live from your Supabase project.'
+           . '</div>';
+    } else {
+        $settings = get_option('wpragbot_settings');
+        $missing  = ( empty($settings['supabase_url']) || empty($settings['supabase_key']) )
+            ? ' Supabase credentials are not configured in API Settings.'
+            : ' Could not reach Supabase — check your URL / API key.';
+        echo '<div class="notice notice-warning inline" style="margin:8px 0;padding:6px 12px;">'
+           . '<strong>&#x26A0;&#xFE0F; Data source: Local WordPress DB.</strong>' . esc_html( $missing )
+           . '</div>';
+    }
     ?>
 
     <div class="postbox">
@@ -198,7 +212,7 @@ $settings = get_option('wpragbot_settings');
                     <tr>
                         <td><?php echo esc_html(substr($session['session_id'], 0, 20)); ?>...</td>
                         <td><?php echo esc_html($session['message_count']); ?></td>
-                        <td>Not Available</td>
+                        <td><?php echo esc_html( isset($session['created_at']) ? date('Y-m-d H:i', strtotime($session['created_at'])) : 'N/A' ); ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>

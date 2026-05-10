@@ -269,164 +269,319 @@ class Wpragbot_Analytics {
      */
 
 
+    // -------------------------------------------------------------------------
+    // Private Supabase HTTP helper
+    // -------------------------------------------------------------------------
+
+    /**
+     * Perform a GET request against the Supabase REST API.
+     *
+     * @param  string $path   Path relative to /rest/v1/ e.g. 'wpragbot_messages?...'
+     * @return array|false    Decoded JSON array on success, false on failure.
+     */
+    private function supabase_get( $path ) {
+        $settings = get_option( 'wpragbot_settings' );
+        if ( empty( $settings['supabase_url'] ) || empty( $settings['supabase_key'] ) ) {
+            return false;
+        }
+
+        $url      = rtrim( $settings['supabase_url'], '/' ) . '/rest/v1/' . ltrim( $path, '/' );
+        $response = wp_remote_get( $url, array(
+            'timeout' => 15,
+            'headers' => array(
+                'apikey'        => $settings['supabase_key'],
+                'Authorization' => 'Bearer ' . $settings['supabase_key'],
+                'Accept'        => 'application/json',
+            ),
+        ) );
+
+        if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) !== 200 ) {
+            error_log( 'WPRAGBot Analytics: Supabase GET failed for ' . $url . ' — ' .
+                ( is_wp_error( $response ) ? $response->get_error_message() : 'HTTP ' . wp_remote_retrieve_response_code( $response ) ) );
+            return false;
+        }
+
+        $data = json_decode( wp_remote_retrieve_body( $response ), true );
+        return is_array( $data ) ? $data : false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Read methods — Supabase first, local DB fallback
+    // -------------------------------------------------------------------------
+
     /**
      * Get chat statistics.
      *
+     * Queries Supabase when credentials are configured; falls back to local DB.
+     *
      * @since    1.0.0
-     * @param    int       $days           Number of days to look back
-     * @return   array                     Statistics data
+     * @param    int    $days    Number of days to look back
+     * @return   array           Statistics data
      */
-    public function get_chat_statistics($days = 30) {
+    public function get_chat_statistics( $days = 30 ) {
+        $since_iso = gmdate( 'Y-m-d\TH:i:s\Z', strtotime( "-{$days} days" ) );
+
+        // ── Supabase path ────────────────────────────────────────────────────
+        $rows = $this->supabase_get(
+            'wpragbot_messages?select=session_id,message_type,content,created_at'
+            . '&created_at=gte.' . rawurlencode( $since_iso )
+            . '&order=created_at.asc'
+        );
+
+        if ( $rows !== false ) {
+            $total_chats    = 0;
+            $sessions       = array();
+            $hour_counts    = array();
+            $question_counts = array();
+            $bot_lengths    = array();
+
+            foreach ( $rows as $row ) {
+                if ( $row['message_type'] === 'user' ) {
+                    $total_chats++;
+                    $sessions[ $row['session_id'] ] = true;
+
+                    // Hour
+                    $h = intval( gmdate( 'G', strtotime( $row['created_at'] ) ) );
+                    $hour_counts[ $h ] = ( $hour_counts[ $h ] ?? 0 ) + 1;
+
+                    // Top questions
+                    $q = $row['content'];
+                    $question_counts[ $q ] = ( $question_counts[ $q ] ?? 0 ) + 1;
+                } elseif ( $row['message_type'] === 'bot' ) {
+                    $bot_lengths[] = strlen( $row['content'] );
+                }
+            }
+
+            // Sessions per-session message count for avg
+            $session_msg_counts = array();
+            foreach ( $rows as $row ) {
+                if ( $row['message_type'] === 'user' ) {
+                    $sid = $row['session_id'];
+                    $session_msg_counts[ $sid ] = ( $session_msg_counts[ $sid ] ?? 0 ) + 1;
+                }
+            }
+
+            $total_sessions = count( $sessions );
+            $avg_msgs = $total_sessions > 0
+                ? round( array_sum( $session_msg_counts ) / $total_sessions, 2 )
+                : 0;
+
+            arsort( $hour_counts );
+            $most_active_hour = empty( $hour_counts ) ? 0 : array_key_first( $hour_counts );
+
+            arsort( $question_counts );
+            $top_questions = array();
+            $i = 0;
+            foreach ( $question_counts as $content => $count ) {
+                $top_questions[] = array( 'content' => $content, 'count' => $count );
+                if ( ++$i >= 10 ) break;
+            }
+
+            $avg_response_length = empty( $bot_lengths )
+                ? 0
+                : intval( array_sum( $bot_lengths ) / count( $bot_lengths ) );
+
+            error_log( 'WPRAGBot Analytics: get_chat_statistics served from Supabase (' . count( $rows ) . ' rows)' );
+
+            return array(
+                'total_chats'              => $total_chats,
+                'total_sessions'           => $total_sessions,
+                'avg_messages_per_session' => $avg_msgs,
+                'most_active_hour'         => $most_active_hour,
+                'top_questions'            => $top_questions,
+                'avg_response_length'      => $avg_response_length,
+                'source'                   => 'supabase',
+            );
+        }
+
+        // ── Local DB fallback ────────────────────────────────────────────────
+        error_log( 'WPRAGBot Analytics: get_chat_statistics falling back to local DB' );
         global $wpdb;
-        
         $since_date = wp_date( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
-        
-        // Get total chats
-        $total_chats = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$wpdb->prefix}wpragbot_messages WHERE message_type = 'user' AND created_at >= %s",
+
+        $total_chats = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}wpragbot_messages WHERE message_type='user' AND created_at>=%s",
             $since_date
-        ));
-        
-        // Get total sessions
-        $total_sessions = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(DISTINCT session_id) FROM {$wpdb->prefix}wpragbot_messages WHERE message_type = 'user' AND created_at >= %s",
+        ) );
+        $total_sessions = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(DISTINCT session_id) FROM {$wpdb->prefix}wpragbot_messages WHERE message_type='user' AND created_at>=%s",
             $since_date
-        ));
-        
-        // Get average messages per session
-        $avg_messages_per_session = $wpdb->get_var($wpdb->prepare(
-            "SELECT AVG(message_count) FROM (
-                SELECT session_id, COUNT(*) as message_count
-                FROM {$wpdb->prefix}wpragbot_messages 
-                WHERE message_type = 'user' AND created_at >= %s
-                GROUP BY session_id
-            ) as session_counts",
+        ) );
+        $avg_messages_per_session = $wpdb->get_var( $wpdb->prepare(
+            "SELECT AVG(mc) FROM (SELECT COUNT(*) AS mc FROM {$wpdb->prefix}wpragbot_messages WHERE message_type='user' AND created_at>=%s GROUP BY session_id) t",
             $since_date
-        ));
-        
-        // Get most active hour
-        $most_active_hour = $wpdb->get_var($wpdb->prepare(
-            "SELECT HOUR(created_at) as hour, COUNT(*) as count 
-             FROM {$wpdb->prefix}wpragbot_messages 
-             WHERE message_type = 'user' AND created_at >= %s
-             GROUP BY HOUR(created_at) 
-             ORDER BY count DESC 
-             LIMIT 1",
+        ) );
+        $most_active_hour = $wpdb->get_var( $wpdb->prepare(
+            "SELECT HOUR(created_at) FROM {$wpdb->prefix}wpragbot_messages WHERE message_type='user' AND created_at>=%s GROUP BY HOUR(created_at) ORDER BY COUNT(*) DESC LIMIT 1",
             $since_date
-        ));
-        
-        // Get top questions (most common)
-        $top_questions = $wpdb->get_results($wpdb->prepare(
-            "SELECT content, COUNT(*) as count 
-             FROM {$wpdb->prefix}wpragbot_messages 
-             WHERE message_type = 'user' AND created_at >= %s
-             GROUP BY content 
-             ORDER BY count DESC 
-             LIMIT 10",
+        ) );
+        $top_questions = $wpdb->get_results( $wpdb->prepare(
+            "SELECT content, COUNT(*) as count FROM {$wpdb->prefix}wpragbot_messages WHERE message_type='user' AND created_at>=%s GROUP BY content ORDER BY count DESC LIMIT 10",
             $since_date
-        ), ARRAY_A);
-        
-        // Average response length
-        $avg_response_length = $wpdb->get_var($wpdb->prepare(
-            "SELECT AVG(LENGTH(content)) 
-             FROM {$wpdb->prefix}wpragbot_messages 
-             WHERE message_type = 'bot' AND created_at >= %s",
+        ), ARRAY_A );
+        $avg_response_length = $wpdb->get_var( $wpdb->prepare(
+            "SELECT AVG(LENGTH(content)) FROM {$wpdb->prefix}wpragbot_messages WHERE message_type='bot' AND created_at>=%s",
             $since_date
-        ));
-        
+        ) );
+
         return array(
-            'total_chats' => intval($total_chats),
-            'total_sessions' => intval($total_sessions),
-            'avg_messages_per_session' => floatval($avg_messages_per_session),
-            'most_active_hour' => intval($most_active_hour),
-            'top_questions' => $top_questions,
-            'avg_response_length' => intval($avg_response_length)
+            'total_chats'              => intval( $total_chats ),
+            'total_sessions'           => intval( $total_sessions ),
+            'avg_messages_per_session' => floatval( $avg_messages_per_session ),
+            'most_active_hour'         => intval( $most_active_hour ),
+            'top_questions'            => $top_questions,
+            'avg_response_length'      => intval( $avg_response_length ),
+            'source'                   => 'local_db',
         );
     }
 
     /**
-     * Get usage trends.
+     * Get usage trends (daily message counts).
+     *
+     * Queries Supabase when credentials are configured; falls back to local DB.
      *
      * @since    1.0.0
-     * @param    int       $days           Number of days to look back
-     * @return   array                     Usage trends data
+     * @param    int    $days    Number of days to look back
+     * @return   array           Array of ['date' => 'Y-m-d', 'count' => N]
      */
-    public function get_usage_trends($days = 30) {
+    public function get_usage_trends( $days = 30 ) {
+        $since_iso = gmdate( 'Y-m-d\TH:i:s\Z', strtotime( "-{$days} days" ) );
+
+        // ── Supabase path ────────────────────────────────────────────────────
+        $rows = $this->supabase_get(
+            'wpragbot_messages?select=created_at'
+            . '&message_type=eq.user'
+            . '&created_at=gte.' . rawurlencode( $since_iso )
+            . '&order=created_at.asc'
+        );
+
+        if ( $rows !== false ) {
+            $daily = array();
+            foreach ( $rows as $row ) {
+                $date = substr( $row['created_at'], 0, 10 ); // 'YYYY-MM-DD'
+                $daily[ $date ] = ( $daily[ $date ] ?? 0 ) + 1;
+            }
+            $result = array();
+            foreach ( $daily as $date => $count ) {
+                $result[] = array( 'date' => $date, 'count' => $count );
+            }
+            error_log( 'WPRAGBot Analytics: get_usage_trends served from Supabase' );
+            return $result;
+        }
+
+        // ── Local DB fallback ────────────────────────────────────────────────
+        error_log( 'WPRAGBot Analytics: get_usage_trends falling back to local DB' );
         global $wpdb;
-        
         $since_date = wp_date( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
-        
-        // Get daily chat counts
-        $daily_counts = $wpdb->get_results($wpdb->prepare(
-            "SELECT DATE(created_at) as date, COUNT(*) as count 
-             FROM {$wpdb->prefix}wpragbot_messages 
-             WHERE message_type = 'user' AND created_at >= %s
-             GROUP BY DATE(created_at) 
-             ORDER BY date",
+        return $wpdb->get_results( $wpdb->prepare(
+            "SELECT DATE(created_at) as date, COUNT(*) as count FROM {$wpdb->prefix}wpragbot_messages WHERE message_type='user' AND created_at>=%s GROUP BY DATE(created_at) ORDER BY date",
             $since_date
-        ), ARRAY_A);
-        
-        return $daily_counts;
+        ), ARRAY_A );
     }
 
     /**
      * Get recent sessions.
      *
+     * Queries Supabase when credentials are configured; falls back to local DB.
+     *
      * @since    1.0.0
-     * @param    int       $limit          Number of sessions to return
-     * @return   array                     Recent sessions data
+     * @param    int    $limit    Number of sessions to return
+     * @return   array            Array of session rows
      */
-    public function get_recent_sessions($limit = 5) {
+    public function get_recent_sessions( $limit = 5 ) {
+        // ── Supabase path ────────────────────────────────────────────────────
+        // Fetch enough rows to aggregate per-session; Supabase REST doesn't do GROUP BY.
+        $rows = $this->supabase_get(
+            'wpragbot_messages?select=session_id,created_at'
+            . '&order=created_at.desc'
+            . '&limit=500'   // fetch last 500 messages to derive sessions from
+        );
+
+        if ( $rows !== false ) {
+            $sessions = array();
+            foreach ( $rows as $row ) {
+                $sid = $row['session_id'];
+                if ( ! isset( $sessions[ $sid ] ) ) {
+                    $sessions[ $sid ] = array(
+                        'session_id'    => $sid,
+                        'created_at'    => $row['created_at'],
+                        'message_count' => 1,
+                    );
+                } else {
+                    $sessions[ $sid ]['message_count']++;
+                    // Keep the latest timestamp
+                    if ( $row['created_at'] > $sessions[ $sid ]['created_at'] ) {
+                        $sessions[ $sid ]['created_at'] = $row['created_at'];
+                    }
+                }
+            }
+
+            // Sort by most recent activity
+            usort( $sessions, function( $a, $b ) {
+                return strcmp( $b['created_at'], $a['created_at'] );
+            } );
+
+            error_log( 'WPRAGBot Analytics: get_recent_sessions served from Supabase' );
+            return array_slice( array_values( $sessions ), 0, $limit );
+        }
+
+        // ── Local DB fallback ────────────────────────────────────────────────
+        error_log( 'WPRAGBot Analytics: get_recent_sessions falling back to local DB' );
         global $wpdb;
-        
-        $sessions = $wpdb->get_results($wpdb->prepare(
-            "SELECT session_id, MAX(created_at) as created_at, COUNT(id) as message_count
-             FROM {$wpdb->prefix}wpragbot_messages
-             GROUP BY session_id
-             ORDER BY created_at DESC
-             LIMIT %d",
+        return $wpdb->get_results( $wpdb->prepare(
+            "SELECT session_id, MAX(created_at) as created_at, COUNT(id) as message_count FROM {$wpdb->prefix}wpragbot_messages GROUP BY session_id ORDER BY created_at DESC LIMIT %d",
             $limit
-        ), ARRAY_A);
-        
-        return $sessions;
+        ), ARRAY_A );
     }
 
     /**
      * Export analytics data.
      *
+     * Queries Supabase when credentials are configured; falls back to local DB.
+     *
      * @since    1.0.0
-     * @param    string    $format         Export format (csv or json)
-     * @param    int       $days           Number of days to export
-     * @return   string|WP_Error           Exported data or error
+     * @param    string    $format    'csv' or 'json'
+     * @param    int       $days      Number of days to export
+     * @return   string|WP_Error      Exported data string or error
      */
-    public function export_data($format = 'csv', $days = 30) {
-        global $wpdb;
-        
-        $since_date = wp_date( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
-        
-        // Get analytics data
-        $analytics_data = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$wpdb->prefix}wpragbot_analytics 
-             WHERE created_at >= %s
-             ORDER BY created_at DESC",
-            $since_date
-        ), ARRAY_A);
-        
-        if ($format === 'json') {
-            return json_encode($analytics_data);
+    public function export_data( $format = 'csv', $days = 30 ) {
+        $since_iso = gmdate( 'Y-m-d\TH:i:s\Z', strtotime( "-{$days} days" ) );
+
+        // ── Supabase path ────────────────────────────────────────────────────
+        $analytics_data = $this->supabase_get(
+            'wpragbot_analytics?select=session_id,interaction_type,data,created_at'
+            . '&created_at=gte.' . rawurlencode( $since_iso )
+            . '&order=created_at.desc'
+        );
+
+        if ( $analytics_data === false ) {
+            // Local DB fallback
+            error_log( 'WPRAGBot Analytics: export_data falling back to local DB' );
+            global $wpdb;
+            $since_date     = wp_date( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
+            $analytics_data = $wpdb->get_results( $wpdb->prepare(
+                "SELECT session_id, interaction_type, data, created_at FROM {$wpdb->prefix}wpragbot_analytics WHERE created_at>=%s ORDER BY created_at DESC",
+                $since_date
+            ), ARRAY_A );
         } else {
-            // CSV export
-            $csv_data = "Session ID,Interaction Type,Data,Created At\n";
-            foreach ($analytics_data as $row) {
-                $csv_data .= sprintf(
-                    '"%s","%s","%s","%s"' . "\n",
-                    $row['session_id'],
-                    $row['interaction_type'],
-                    str_replace('"', '""', $row['data']),
-                    $row['created_at']
-                );
-            }
-            return $csv_data;
+            error_log( 'WPRAGBot Analytics: export_data served from Supabase (' . count( $analytics_data ) . ' rows)' );
         }
+
+        if ( $format === 'json' ) {
+            return json_encode( $analytics_data );
+        }
+
+        // CSV export
+        $csv = "Session ID,Interaction Type,Data,Created At\n";
+        foreach ( $analytics_data as $row ) {
+            $csv .= sprintf(
+                '"%s","%s","%s","%s"' . "\n",
+                $row['session_id'],
+                $row['interaction_type'],
+                str_replace( '"', '""', $row['data'] ),
+                $row['created_at']
+            );
+        }
+        return $csv;
     }
 }
