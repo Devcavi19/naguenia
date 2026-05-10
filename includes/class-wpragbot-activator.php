@@ -31,6 +31,8 @@ class Wpragbot_Activator {
         $default_settings = array(
             'ai_provider' => 'gemini',
             'api_key' => '',
+            'supabase_url' => '',
+            'supabase_key' => '',
             'qdrant_url' => '',
             'qdrant_api_key' => '',
             'collection_name' => 'knowledge_base',

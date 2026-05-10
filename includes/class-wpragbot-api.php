@@ -558,7 +558,9 @@ class Wpragbot_API {
             error_log('WPRAGBot: Processing chat request - Session: ' . $session_id . ', Message: ' . substr($message, 0, 50));
             error_log('WPRAGBot: Settings check - Provider: ' . (empty($settings['ai_provider']) ? 'MISSING' : $settings['ai_provider']) . 
                       ', Qdrant URL: ' . (empty($settings['qdrant_url']) ? 'MISSING' : $settings['qdrant_url']) . 
-                      ', Collection: ' . (empty($settings['collection_name']) ? 'MISSING' : $settings['collection_name']));
+                      ', Collection: ' . (empty($settings['collection_name']) ? 'MISSING' : $settings['collection_name']) .
+                      ', Supabase URL: ' . (empty($settings['supabase_url']) ? 'MISSING/EMPTY' : $settings['supabase_url']) .
+                      ', Supabase Key: ' . (empty($settings['supabase_key']) ? 'MISSING/EMPTY' : '(set, length=' . strlen($settings['supabase_key']) . ')'));
             
             // Check if this is a simple greeting or meta-question FIRST
             $is_greeting_or_meta = $this->is_greeting_or_meta_query($message);

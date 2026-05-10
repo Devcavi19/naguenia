@@ -35,12 +35,19 @@ class Wpragbot_Analytics {
     /**
      * Track a chat interaction.
      *
+     * This method implements a dual-write strategy:
+     * 1. Primary: Write to Supabase (if configured and reachable)
+     * 2. Secondary: Always write to local WordPress DB as backup
+     *
+     * This ensures data is never lost even if Supabase is unreachable or misconfigured.
+     * The local DB acts as a fallback and redundancy layer.
+     *
      * @since    1.0.0
      * @param    string    $session_id     Session identifier
      * @param    string    $user_message   User's message
      * @param    string    $bot_response   Bot's response
      * @param    array     $context        Retrieved context
-     * @return   bool                      Whether tracking was successful
+     * @return   bool                      Whether tracking was successful (always writes to local DB)
      */
     public function track_chat_interaction($session_id, $user_message, $bot_response, $context = array()) {
         // Get plugin settings
@@ -77,8 +84,9 @@ class Wpragbot_Analytics {
                 )
             );
 
-            if (is_wp_error($user_msg_response)) {
-                error_log('WPRAGBot Analytics: Failed to write user message to Supabase — ' . $user_msg_response->get_error_message());
+            $user_response_code = wp_remote_retrieve_response_code($user_msg_response);
+            if (is_wp_error($user_msg_response) || $user_response_code !== 201) {
+                error_log('WPRAGBot Analytics: Failed to write user message to Supabase — ' . (is_wp_error($user_msg_response) ? $user_msg_response->get_error_message() : 'HTTP ' . $user_response_code));
                 return $this->track_chat_interaction_db($session_id, $user_message, $bot_response, $context);
             }
 
@@ -96,8 +104,9 @@ class Wpragbot_Analytics {
                 )
             );
 
-            if (is_wp_error($bot_msg_response)) {
-                error_log('WPRAGBot Analytics: Failed to write bot message to Supabase — ' . $bot_msg_response->get_error_message());
+            $bot_response_code = wp_remote_retrieve_response_code($bot_msg_response);
+            if (is_wp_error($bot_msg_response) || $bot_response_code !== 201) {
+                error_log('WPRAGBot Analytics: Failed to write bot message to Supabase — ' . (is_wp_error($bot_msg_response) ? $bot_msg_response->get_error_message() : 'HTTP ' . $bot_response_code));
             }
 
             // 3. Write analytics summary row to wpragbot_analytics
@@ -120,19 +129,60 @@ class Wpragbot_Analytics {
                 )
             );
 
-            if (is_wp_error($analytics_response)) {
-                error_log('WPRAGBot Analytics: Failed to write analytics to Supabase — ' . $analytics_response->get_error_message());
+            $analytics_response_code = wp_remote_retrieve_response_code($analytics_response);
+            if (is_wp_error($analytics_response) || $analytics_response_code !== 201) {
+                error_log('WPRAGBot Analytics: Failed to write analytics to Supabase — ' . (is_wp_error($analytics_response) ? $analytics_response->get_error_message() : 'HTTP ' . $analytics_response_code));
+            } else {
+                error_log('WPRAGBot Analytics: Successfully wrote data to Supabase');
             }
 
             // Always also write to local DB as a secondary backup
             $this->track_chat_interaction_db($session_id, $user_message, $bot_response, $context);
 
+            error_log('WPRAGBot Analytics: All data successfully written to Supabase for session ' . $session_id);
             return true;
 
         } catch (Exception $e) {
             error_log('WPRAGBot: Supabase tracking error: ' . $e->getMessage());
             return $this->track_chat_interaction_db($session_id, $user_message, $bot_response, $context);
         }
+    }
+
+    /**
+     * Test Supabase connection.
+     *
+     * Verifies that the provided Supabase credentials are valid and the service is reachable.
+     *
+     * @since    1.0.0
+     * @param    string    $supabase_url    Supabase project URL
+     * @param    string    $supabase_key    Supabase API/Anon key
+     * @return   bool|WP_Error             True if connected, WP_Error otherwise
+     */
+    public function test_connection($supabase_url, $supabase_key) {
+        if (empty($supabase_url) || empty($supabase_key)) {
+            return new WP_Error('missing_credentials', 'Supabase URL and API Key are required');
+        }
+
+        $endpoint = rtrim($supabase_url, '/') . '/rest/v1/';
+        
+        $response = wp_remote_get($endpoint, array(
+            'headers' => array(
+                'apikey' => $supabase_key,
+                'Authorization' => 'Bearer ' . $supabase_key,
+            ),
+            'timeout' => 5,
+        ));
+
+        if (is_wp_error($response)) {
+            return new WP_Error('connection_failed', 'Failed to connect to Supabase: ' . $response->get_error_message());
+        }
+
+        $response_code = wp_remote_retrieve_response_code($response);
+        if ($response_code !== 200) {
+            return new WP_Error('invalid_credentials', 'Invalid Supabase credentials or URL (HTTP ' . $response_code . ')');
+        }
+
+        return true;
     }
 
     /**

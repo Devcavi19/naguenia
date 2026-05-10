@@ -230,8 +230,18 @@ class Wpragbot_Admin {
             $sanitized['api_key'] = sanitize_text_field( $input['api_key'] );
         }
 
+        // FIX: supabase_url and supabase_key were previously missing — they are now saved correctly.
+        if ( isset( $input['supabase_url'] ) ) {
+            $sanitized['supabase_url'] = esc_url_raw( $input['supabase_url'] );
+        }
+
+        if ( isset( $input['supabase_key'] ) ) {
+            $sanitized['supabase_key'] = sanitize_text_field( $input['supabase_key'] );
+        }
+
+        // Use esc_url_raw (not esc_url) so REST API URLs with query-string chars are preserved.
         if ( isset( $input['qdrant_url'] ) ) {
-            $sanitized['qdrant_url'] = esc_url( $input['qdrant_url'] );
+            $sanitized['qdrant_url'] = esc_url_raw( $input['qdrant_url'] );
         }
 
         if ( isset( $input['qdrant_api_key'] ) ) {
@@ -249,11 +259,11 @@ class Wpragbot_Admin {
         }
 
         if ( isset( $input['embedding_endpoint'] ) ) {
-            $sanitized['embedding_endpoint'] = esc_url( $input['embedding_endpoint'] );
+            $sanitized['embedding_endpoint'] = esc_url_raw( $input['embedding_endpoint'] );
         }
 
         if ( isset( $input['embedding_batch_endpoint'] ) ) {
-            $sanitized['embedding_batch_endpoint'] = esc_url( $input['embedding_batch_endpoint'] );
+            $sanitized['embedding_batch_endpoint'] = esc_url_raw( $input['embedding_batch_endpoint'] );
         }
 
         return $sanitized;
