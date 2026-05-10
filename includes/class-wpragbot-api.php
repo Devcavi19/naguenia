@@ -445,21 +445,30 @@ class Wpragbot_API {
                 error_log('WPRAGBot: Using custom system prompt from WordPress admin panel for greeting');
             }
 
-            // Build messages array WITHOUT context for greeting
             $final_messages = array();
-            
             $final_messages[] = array(
-                'role' => 'system',
+                'role'    => 'system',
                 'content' => $system_prompt
             );
 
-            // Add user message WITHOUT context block
+            // FIX (C1): Load and inject prior conversation turns so the bot
+            // remembers everything said earlier in the same session (e.g. the
+            // user's name shared in a previous greeting turn).
+            $history = $this->get_prompt_history($session_id);
+            foreach ($history as $msg) {
+                $final_messages[] = array(
+                    'role'    => $msg['role'] === 'bot' ? 'assistant' : $msg['role'],
+                    'content' => $msg['content'],
+                );
+            }
+
+            // Add the current user message
             $final_messages[] = array(
-                'role' => 'user',
+                'role'    => 'user',
                 'content' => $message
             );
 
-            // Generate response using the custom system prompt
+            // Generate response using the custom system prompt + history
             $response = $this->generate_response_with_messages(
                 $final_messages,
                 $settings['api_key'],
@@ -471,12 +480,11 @@ class Wpragbot_API {
                 return $response;
             }
 
-            error_log('WPRAGBot: Successfully generated greeting response');
+            error_log('WPRAGBot: Successfully generated greeting/conversational response with ' . count($history) . ' prior turns');
 
-            // Return the response
             return array(
-                'response' => $response,
-                'context' => '',
+                'response'   => $response,
+                'context'    => '',
                 'session_id' => $session_id
             );
 
@@ -495,8 +503,15 @@ class Wpragbot_API {
      */
     private function is_greeting_or_meta_query($message) {
         $message_lower = strtolower(trim($message));
-        
-        // Greetings
+
+        // FIX (I1 + C2 partial): Only treat a message as a "pure greeting" when it
+        // is SHORT (≤ 40 chars) AND starts with a greeting keyword, with nothing
+        // substantive appended. This prevents misclassifying:
+        //   - "Hello, I'm Herald"  → should go through RAG + history (has content)
+        //   - "can you explain it in 4 sentences?" → follow-up, not a greeting
+        // Both previously matched the old prefix check and skipped conversation history.
+
+        // Pure greeting keywords (must be an exact match or a short standalone phrase)
         $greetings = array(
             'hello',
             'hi',
@@ -512,32 +527,37 @@ class Wpragbot_API {
             'hi there',
             'hello there',
             'how are you',
-            'what\'s up',
+            "what's up",
             'how do you do',
         );
 
-        // Meta/help questions
+        // Meta/help questions — keep broad matching but exclude messages that
+        // look like conversational follow-ups (questions about prior answers).
         $meta_questions = array(
             'who are you',
             'what are you',
             'what can you do',
             'what can you help',
-            'help',
-            'help me',
             'what do you do',
             'tell me about yourself',
             'introduce yourself',
-            'what is this',
-            'how do i use',
-            'how to use',
-            'what is the',
-            'what\'s this',
+            'what is this chatbot',
+            'how do i use this',
         );
 
-        // Check if message matches any greeting or meta pattern
+        // Greeting: only match if the message is short (pure greeting, no extra info)
+        // and the greeting keyword is the WHOLE message or the message is ≤ 40 chars.
         foreach ($greetings as $greeting) {
-            if ($message_lower === $greeting || strpos($message_lower, $greeting) === 0) {
-                return true;
+            if ($message_lower === $greeting) {
+                return true; // Exact match always counts as a greeting
+            }
+            // Prefix match only if the total message is very short (no appended info)
+            if (strlen($message_lower) <= 40 && strpos($message_lower, $greeting) === 0) {
+                // Ensure nothing substantive follows (only punctuation/spaces allowed)
+                $after = trim(substr($message_lower, strlen($greeting)));
+                if (empty($after) || in_array($after, array('!', '.', ',', '?', ':)', ':D', '😊', '👋'), true)) {
+                    return true;
+                }
             }
         }
 
@@ -606,28 +626,22 @@ class Wpragbot_API {
 
             // 3. Construct context with relevant documents
             $context = $this->construct_context($relevant_docs);
-            
             error_log('WPRAGBot: Context length: ' . strlen($context) . ' characters');
 
-            if (empty($context)) {
-                error_log('WPRAGBot: No relevant context found; returning safe fallback response');
-                return array(
-                    'response' => 'I don\'t have enough information in the provided documents to answer this question.',
-                    'context' => '',
-                    'session_id' => $session_id,
-                );
-            }
-
-            // 4. Prepare chat history and summaries
-            $all_messages = $this->get_prompt_history($session_id);
-            $count = count($all_messages);
-            $summary = null;
+            // FIX (C2): Load conversation history BEFORE the empty-context guard.
+            // Previously, history was only loaded after this guard — meaning any
+            // conversational follow-up that found no Qdrant docs (e.g. "What's my name?",
+            // "can you explain in 4 sentences?") returned the hardcoded fallback without
+            // ever reading stored history. Now history is always available.
+            $all_messages    = $this->get_prompt_history($session_id);
+            $count           = count($all_messages);
+            $summary         = null;
             $recent_messages = $all_messages;
 
             if ($count > 10) {
-                $old_messages = array_slice($all_messages, 0, -6);
+                $old_messages    = array_slice($all_messages, 0, -6);
                 $recent_messages = array_slice($all_messages, -6);
-                $turn_count = count($old_messages);
+                $turn_count      = count($old_messages);
 
                 $summary = $this->get_session_summary($session_id, $turn_count);
                 if (!$summary) {
@@ -638,24 +652,35 @@ class Wpragbot_API {
                 }
             }
 
+            // FIX (C2 cont.): If Qdrant found no docs AND there is no conversation
+            // history at all, only then return the graceful fallback.
+            // If history IS present, fall through to build a response from memory.
+            if (empty($context) && empty($recent_messages) && !$summary) {
+                error_log('WPRAGBot: No context and no conversation history — returning fallback response');
+                return array(
+                    'response'   => 'I\'m sorry, I don\'t have enough information to answer that question. Could you ask something related to Naga City Government services?',
+                    'context'    => '',
+                    'session_id' => $session_id,
+                );
+            }
+
             // 5. Build final messages array
-            $final_messages = array();
-            
             $system_prompt = trim($settings['system_prompt'] ?? '');
             if (empty($system_prompt)) {
-                // Use the default system prompt from the centralized method
                 $system_prompt = $this->get_default_system_prompt();
                 error_log('WPRAGBot: Using default system prompt (admin setting was empty)');
             } else {
                 error_log('WPRAGBot: Using custom system prompt from WordPress admin panel (length: ' . strlen($system_prompt) . ' chars)');
             }
 
+            $final_messages = array();
             $final_messages[] = array(
-                'role' => 'system',
+                'role'    => 'system',
                 'content' => $system_prompt
             );
 
-            $context_block = "";
+            // Build the context block (RAG docs + session summary if available)
+            $context_block = '';
             if (!empty($context)) {
                 $context_block .= "Context information:\n" . $context . "\n\n";
             }
@@ -663,18 +688,19 @@ class Wpragbot_API {
                 $context_block .= "Previous Conversations Summary:\n" . $summary . "\n\n";
             }
 
+            // Inject conversation history turns into the messages array so the LLM
+            // has full multi-turn awareness (roles: user / assistant)
             foreach ($recent_messages as $msg) {
-                // Supabase analytic insertions might use local names like 'user'/'bot'. 
-                // Mistral/OpenAI expect 'user'/'assistant'
                 $final_messages[] = array(
-                    'role' => $msg['role'] === 'bot' ? 'assistant' : $msg['role'],
+                    'role'    => $msg['role'] === 'bot' ? 'assistant' : $msg['role'],
                     'content' => $msg['content']
                 );
             }
 
+            // Append current user message, prefixed with any RAG context
             $final_messages[] = array(
-                'role' => 'user',
-                'content' => $context_block . "User question: " . $message
+                'role'    => 'user',
+                'content' => $context_block . 'User question: ' . $message
             );
 
             // 6. Generate response using selected AI provider with messages array
