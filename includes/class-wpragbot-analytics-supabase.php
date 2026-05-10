@@ -86,8 +86,9 @@ class Wpragbot_Analytics {
 
             $user_response_code = wp_remote_retrieve_response_code($user_msg_response);
             if (is_wp_error($user_msg_response) || $user_response_code !== 201) {
+                // Log the failure but do NOT return early — continue to write the bot message
+                // and analytics row so we don't lose data from a single transient failure.
                 error_log('WPRAGBot Analytics: Failed to write user message to Supabase — ' . (is_wp_error($user_msg_response) ? $user_msg_response->get_error_message() : 'HTTP ' . $user_response_code));
-                return $this->track_chat_interaction_db($session_id, $user_message, $bot_response, $context);
             }
 
             // 2. Write bot response to wpragbot_messages
@@ -163,11 +164,14 @@ class Wpragbot_Analytics {
             return new WP_Error('missing_credentials', 'Supabase URL and API Key are required');
         }
 
-        $endpoint = rtrim($supabase_url, '/') . '/rest/v1/';
-        
+        // Use a table-level query instead of the root /rest/v1/ endpoint.
+        // The root schema endpoint returns HTTP 200 even with an invalid API key;
+        // a table query returns 401/403 when the key is wrong.
+        $endpoint = rtrim($supabase_url, '/') . '/rest/v1/wpragbot_messages?limit=1';
+
         $response = wp_remote_get($endpoint, array(
             'headers' => array(
-                'apikey' => $supabase_key,
+                'apikey'        => $supabase_key,
                 'Authorization' => 'Bearer ' . $supabase_key,
             ),
             'timeout' => 5,

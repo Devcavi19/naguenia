@@ -236,8 +236,10 @@ class Wpragbot_API {
         $messages = array();
         foreach ($data as $row) {
             $messages[] = array(
-                'role' => $row['message_type'],
-                'content' => $row['content']
+                // Map 'bot' → 'assistant' so AI providers (OpenAI/Mistral/OpenRouter) accept the role.
+                // The Supabase column stores 'bot'; providers require 'assistant'.
+                'role'    => $row['message_type'] === 'bot' ? 'assistant' : $row['message_type'],
+                'content' => $row['content'],
             );
         }
         return $messages;
@@ -295,22 +297,33 @@ class Wpragbot_API {
     private function save_session_summary($session_id, $turn_count, $summary) {
         $settings = get_option('wpragbot_settings');
         if (!empty($settings['supabase_url']) && !empty($settings['supabase_key'])) {
-            $endpoint = rtrim($settings['supabase_url'], '/') . '/rest/v1/session_summaries';
+            // PostgREST upsert: 'resolution=merge-duplicates' requires the conflict
+            // columns to be declared via the ?on_conflict= query parameter.
+            // Without it, duplicate (session_id, turn_count) rows cause a 409 Conflict.
+            $endpoint = rtrim($settings['supabase_url'], '/') . '/rest/v1/session_summaries?on_conflict=session_id,turn_count';
             $body = array(
                 'session_id' => $session_id,
                 'turn_count' => $turn_count,
-                'summary' => $summary
+                'summary'    => $summary,
             );
-            wp_remote_post($endpoint, array(
-                'method' => 'POST',
+            $response = wp_remote_post($endpoint, array(
+                'method'  => 'POST',
                 'headers' => array(
-                    'apikey' => $settings['supabase_key'],
+                    'apikey'        => $settings['supabase_key'],
                     'Authorization' => 'Bearer ' . $settings['supabase_key'],
-                    'Content-Type' => 'application/json',
-                    'Prefer' => 'resolution=merge-duplicates'
+                    'Content-Type'  => 'application/json',
+                    'Prefer'        => 'resolution=merge-duplicates,return=minimal',
                 ),
-                'body' => wp_json_encode($body)
+                'body' => wp_json_encode($body),
             ));
+
+            $response_code = wp_remote_retrieve_response_code($response);
+            // Successful upsert returns 201 (insert) or 200 (update via merge-duplicates).
+            if (is_wp_error($response) || !in_array($response_code, array(200, 201), true)) {
+                error_log('WPRAGBot: Failed to save session summary to Supabase — ' . (is_wp_error($response) ? $response->get_error_message() : 'HTTP ' . $response_code));
+            } else {
+                error_log('WPRAGBot: Successfully saved session summary to Supabase for session ' . $session_id . ' turn ' . $turn_count);
+            }
         }
         
         global $wpdb;
