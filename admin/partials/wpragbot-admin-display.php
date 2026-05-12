@@ -19,7 +19,7 @@ $settings = get_option('wpragbot_settings');
 ?>
 
 <div class="wrap wpragbot-settings-page">
-    <h1>WPRAGBot Settings</h1>
+    <h1>NaguenIA Settings</h1>
 
     <form method="post" action="options.php" id="wpragbot-settings-form">
         <?php
@@ -35,7 +35,7 @@ $settings = get_option('wpragbot_settings');
     <div class="postbox">
         <div class="inside">
             <h3>📚 How to Add Documents</h3>
-            <p>WPRAGBot uses <strong>Qdrant</strong> as its vector database. Documents must be pre-processed and indexed into your Qdrant collection <em>before</em> the chatbot can use them.</p>
+            <p>NaguenIA uses <strong>Qdrant</strong> as its vector database. Documents must be pre-processed and indexed into your Qdrant collection <em>before</em> the chatbot can use them.</p>
 
             <table class="form-table" role="presentation">
                 <tr>

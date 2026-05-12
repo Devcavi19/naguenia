@@ -85,8 +85,8 @@ class Wpragbot_Admin {
      */
     public function add_plugin_admin_menu() {
         add_options_page(
-            'WPRAGBot Settings',
-            'WPRAGBot',
+            'NaguenIA Settings',
+            'NaguenIA',
             'manage_options',
             $this->plugin_name,
             array( $this, 'display_plugin_settings_page' )

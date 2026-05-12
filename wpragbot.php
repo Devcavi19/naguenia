@@ -13,7 +13,7 @@
  * @package           Wpragbot
  *
  * @wordpress-plugin
- * Plugin Name:       WPRAGBot
+ * Plugin Name:       NaguenIA
  * Plugin URI:        https://github.com/Devcavi19/wpragbot
  * Description:       AI-powered chatbot plugin with RAG integration for multiple AI providers (Gemini, OpenAI, Mistral, OpenRouter) and Qdrant vector search.
  * Version:           1.0.0
