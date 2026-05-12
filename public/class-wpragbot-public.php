@@ -88,18 +88,27 @@ class Wpragbot_Public {
      * @since    1.0.0
      */
     public function handle_chat() {
-        // --- Rate Limiting (IP-based, 20 requests per hour) ---
-        $ip              = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
-        $transient_key   = 'wpragbot_rate_' . md5( $ip );
-        $request_count   = (int) get_transient( $transient_key );
-
-        if ( $request_count >= 20 ) {
-            wp_send_json_error( 'Rate limit exceeded. Please try again in an hour.' );
+        // ✅ SECURITY: Require authentication for chat access (unless explicitly allowed for guests)
+        // To allow unauthenticated access, administrators should set WPRAGBOT_ALLOW_GUEST_CHAT to true
+        if ( ! is_user_logged_in() && ! apply_filters( 'wpragbot_allow_guest_chat', false ) ) {
+            wp_send_json_error( array( 'message' => 'You must be logged in to use the chat.' ) );
             return;
         }
 
-        set_transient( $transient_key, $request_count + 1, HOUR_IN_SECONDS );
-        // --- End Rate Limiting ---
+        // --- Enhanced Rate Limiting (per-user + per-IP, 10 requests per minute max) ---
+        $ip              = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
+        $user_id         = get_current_user_id();
+        $rate_limit_key  = $user_id ? 'wpragbot_rate_user_' . $user_id : 'wpragbot_rate_ip_' . md5( $ip );
+        $request_count   = (int) get_transient( $rate_limit_key );
+
+        // Allow 10 requests per minute (stricter than before)
+        if ( $request_count >= 10 ) {
+            wp_send_json_error( array( 'message' => 'Rate limit exceeded. Please wait a moment before sending another message.' ) );
+            return;
+        }
+
+        set_transient( $rate_limit_key, $request_count + 1, MINUTE_IN_SECONDS );
+        // --- End Enhanced Rate Limiting ---
 
         // Check if POST data exists
         if ( !isset( $_POST['nonce'] ) || !isset( $_POST['message'] ) || !isset( $_POST['session_id'] ) ) {
@@ -117,9 +126,21 @@ class Wpragbot_Public {
         $message = sanitize_textarea_field( $_POST['message'] );
         $session_id = sanitize_text_field( $_POST['session_id'] );
 
+        // ✅ SECURITY: Validate session ID format (UUID v4 or alphanumeric)
+        if ( ! preg_match( '/^[a-zA-Z0-9\-]{8,36}$/', $session_id ) ) {
+            wp_send_json_error( array( 'message' => 'Invalid session.' ) );
+            return;
+        }
+
         // Validate message is not empty
         if ( empty( trim( $message ) ) ) {
-            wp_send_json_error( 'Message cannot be empty' );
+            wp_send_json_error( array( 'message' => 'Message cannot be empty' ) );
+            return;
+        }
+
+        // ✅ SECURITY: Enforce maximum message length (5000 chars = ~1250 words)
+        if ( strlen( $message ) > 5000 ) {
+            wp_send_json_error( array( 'message' => 'Message is too long. Maximum length is 5000 characters.' ) );
             return;
         }
 

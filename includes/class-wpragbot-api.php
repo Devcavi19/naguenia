@@ -159,7 +159,7 @@ class Wpragbot_API {
 
             if (is_wp_error($response)) {
                 error_log('WPRAGBot: AI API request failed: ' . $response->get_error_message());
-                return new WP_Error('ai_request_failed', 'Failed to connect to AI provider: ' . $response->get_error_message());
+                return new WP_Error('ai_request_failed', 'Failed to connect to AI provider');
             }
 
             $response_code = wp_remote_retrieve_response_code($response);
@@ -169,7 +169,8 @@ class Wpragbot_API {
                 $error_data = json_decode($response_body, true);
                 $error_message = isset($error_data['error']['message']) ? $error_data['error']['message'] : 'Unknown error';
                 error_log('WPRAGBot: AI API error (code ' . $response_code . '): ' . $error_message);
-                return new WP_Error('ai_api_error', 'AI API error: ' . $error_message, array('status' => $response_code));
+                // ✅ SECURITY: Return generic error, never expose backend details to frontend
+                return new WP_Error('ai_api_error', 'An error occurred while generating a response', array('status' => $response_code));
             }
 
             // Parse the response based on provider
@@ -465,7 +466,8 @@ class Wpragbot_API {
             // Add the current user message
             $final_messages[] = array(
                 'role'    => 'user',
-                'content' => $message
+                // ✅ SECURITY: Wrap user input in explicit delimiters for greeting context too
+                'content' => '<|user_question_start|>' . $message . '<|user_question_end|>'
             );
 
             // Generate response using the custom system prompt + history
@@ -698,9 +700,10 @@ class Wpragbot_API {
             }
 
             // Append current user message, prefixed with any RAG context
+            // ✅ SECURITY: Wrap user input in explicit delimiters to reduce prompt injection
             $final_messages[] = array(
                 'role'    => 'user',
-                'content' => $context_block . 'User question: ' . $message
+                'content' => $context_block . 'User question: <|user_question_start|>' . $message . '<|user_question_end|>'
             );
 
             // 6. Generate response using selected AI provider with messages array
@@ -748,9 +751,40 @@ class Wpragbot_API {
             return new WP_Error( 'missing_qdrant_config', 'Qdrant URL and collection name are required' );
         }
 
+        // ✅ SECURITY: Validate URL is external (not localhost/private IP) to prevent SSRF
         if ( ! filter_var( $qdrant_url, FILTER_VALIDATE_URL ) || ! wp_http_validate_url( $qdrant_url ) ) {
             error_log( 'WPRAGBot: Invalid Qdrant URL provided.' );
             return new WP_Error( 'invalid_qdrant_url', 'Invalid Qdrant URL provided' );
+        }
+
+        // ✅ SECURITY: Prevent SSRF by blocking localhost and private IP ranges
+        $parsed_url = wp_parse_url( $qdrant_url );
+        if ( $parsed_url && isset( $parsed_url['host'] ) ) {
+            $host = $parsed_url['host'];
+            // List of blocked hosts/patterns
+            $blocked_patterns = array(
+                'localhost',
+                '127.0.0.1',
+                '::1',
+                '169.254.169.254', // AWS metadata
+                '/^192\.168\./',  // Private range
+                '/^10\./',        // Private range
+                '/^172\.(1[6-9]|2[0-9]|3[01])\./', // Private range 172.16-172.31
+            );
+            
+            foreach ( $blocked_patterns as $pattern ) {
+                if ( strpos( $pattern, '/' ) === 0 ) {
+                    if ( preg_match( $pattern, $host ) ) {
+                        error_log( 'WPRAGBot: SSRF attempt blocked - host matches private IP range: ' . $host );
+                        return new WP_Error( 'invalid_qdrant_url', 'Qdrant URL must be external' );
+                    }
+                } else {
+                    if ( strtolower( $host ) === $pattern ) {
+                        error_log( 'WPRAGBot: SSRF attempt blocked - host: ' . $host );
+                        return new WP_Error( 'invalid_qdrant_url', 'Qdrant URL must be external' );
+                    }
+                }
+            }
         }
 
         if (empty($query_embedding) || !is_array($query_embedding)) {
@@ -814,7 +848,8 @@ class Wpragbot_API {
             $error_data = json_decode($response_body, true);
             $error_message = isset($error_data['status']['error']) ? $error_data['status']['error'] : 'Unknown error';
             error_log('WPRAGBot: Qdrant API error (code ' . $response_code . '): ' . $error_message);
-            return new WP_Error('qdrant_api_error', 'Qdrant API error: ' . $error_message, array('status' => $response_code));
+            // ✅ SECURITY: Return generic error message, never expose backend details
+            return new WP_Error('qdrant_api_error', 'Error retrieving information', array('status' => $response_code));
         }
 
         $data = json_decode($response_body, true);

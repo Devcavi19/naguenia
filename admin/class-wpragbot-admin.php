@@ -242,6 +242,11 @@ class Wpragbot_Admin {
         // Use esc_url_raw (not esc_url) so REST API URLs with query-string chars are preserved.
         if ( isset( $input['qdrant_url'] ) ) {
             $sanitized['qdrant_url'] = esc_url_raw( $input['qdrant_url'] );
+            // ✅ SECURITY: Validate Qdrant URL is external (prevent SSRF)
+            if ( ! $this->is_safe_external_url( $sanitized['qdrant_url'] ) ) {
+                add_settings_error( 'wpragbot_settings', 'invalid_qdrant_url', 'Qdrant URL must be external (not localhost or private IP)' );
+                unset( $sanitized['qdrant_url'] );
+            }
         }
 
         if ( isset( $input['qdrant_api_key'] ) ) {
@@ -260,13 +265,71 @@ class Wpragbot_Admin {
 
         if ( isset( $input['embedding_endpoint'] ) ) {
             $sanitized['embedding_endpoint'] = esc_url_raw( $input['embedding_endpoint'] );
+            // ✅ SECURITY: Validate embedding endpoint is external
+            if ( ! $this->is_safe_external_url( $sanitized['embedding_endpoint'] ) ) {
+                add_settings_error( 'wpragbot_settings', 'invalid_embedding_endpoint', 'Embedding endpoint must be external (not localhost or private IP)' );
+                unset( $sanitized['embedding_endpoint'] );
+            }
         }
 
         if ( isset( $input['embedding_batch_endpoint'] ) ) {
             $sanitized['embedding_batch_endpoint'] = esc_url_raw( $input['embedding_batch_endpoint'] );
+            // ✅ SECURITY: Validate embedding batch endpoint is external
+            if ( ! $this->is_safe_external_url( $sanitized['embedding_batch_endpoint'] ) ) {
+                add_settings_error( 'wpragbot_settings', 'invalid_embedding_batch_endpoint', 'Embedding batch endpoint must be external (not localhost or private IP)' );
+                unset( $sanitized['embedding_batch_endpoint'] );
+            }
         }
 
         return $sanitized;
+    }
+
+    /**
+     * Validate that a URL is external (not localhost or private IP range).
+     * Prevents SSRF attacks through admin settings.
+     *
+     * @since    1.0.0
+     * @param    string    $url    The URL to validate
+     * @return   bool              True if URL is safe external URL
+     */
+    private function is_safe_external_url( $url ) {
+        if ( empty( $url ) ) {
+            return true; // Empty is OK (field is optional)
+        }
+
+        $parsed_url = wp_parse_url( $url );
+        if ( ! $parsed_url || ! isset( $parsed_url['host'] ) ) {
+            return false;
+        }
+
+        $host = strtolower( $parsed_url['host'] );
+        
+        // Blocked hosts/patterns
+        $blocked_patterns = array(
+            'localhost',
+            '127.0.0.1',
+            '::1',
+            '169.254.169.254',
+        );
+
+        foreach ( $blocked_patterns as $pattern ) {
+            if ( $host === $pattern ) {
+                return false;
+            }
+        }
+
+        // Check private IP ranges
+        if ( preg_match( '/^192\.168\./', $host ) ) {
+            return false;
+        }
+        if ( preg_match( '/^10\./', $host ) ) {
+            return false;
+        }
+        if ( preg_match( '/^172\.(1[6-9]|2[0-9]|3[01])\./', $host ) ) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -297,6 +360,12 @@ class Wpragbot_Admin {
         $format = isset($_GET['format']) ? sanitize_text_field($_GET['format']) : 'csv';
         $days = isset($_GET['days']) ? intval($_GET['days']) : 30;
 
+        // ✅ SECURITY: Validate format to prevent header injection
+        $allowed_formats = array('csv', 'json');
+        if ( ! in_array( $format, $allowed_formats, true ) ) {
+            wp_die( esc_html__( 'Invalid export format.', 'wpragbot' ) );
+        }
+
         $analytics = new Wpragbot_Analytics();
         $data = $analytics->export_data($format, $days);
 
@@ -304,18 +373,20 @@ class Wpragbot_Admin {
             wp_die($data->get_error_message());
         }
 
-        // Set appropriate headers
-        $filename = 'wpragbot-analytics-' . date('Y-m-d') . '.' . $format;
+        // ✅ SECURITY: Generate safe filename without user input
+        $filename = 'wpragbot-analytics-' . wp_date('Y-m-d-His') . '.' . $format;
 
         if ($format === 'json') {
-            header('Content-Type: application/json');
+            header('Content-Type: application/json; charset=utf-8');
         } else {
-            header('Content-Type: text/csv');
+            header('Content-Type: text/csv; charset=utf-8');
         }
 
-        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        // ✅ SECURITY: Use RFC 5987 for filename, escape Special characters
+        header('Content-Disposition: attachment; filename="' . $filename . '"', true);
         header('Cache-Control: no-cache, must-revalidate');
         header('Expires: 0');
+        header('Pragma: no-cache');
 
         echo $data;
         exit;
@@ -355,6 +426,7 @@ class Wpragbot_Admin {
         $options = get_option( 'wpragbot_settings' );
         $api_key = isset( $options['api_key'] ) ? $options['api_key'] : '';
         echo '<input type="password" name="wpragbot_settings[api_key]" value="' . esc_attr( $api_key ) . '" class="regular-text" />';
+        echo '<p class="description">⚠️ Store this key in wp-config.php for enhanced security: <code>define(\'WPRAGBOT_API_KEY\', \'your-key-here\');</code></p>';
     }
 
     public function supabase_url_render() {
@@ -367,6 +439,7 @@ class Wpragbot_Admin {
         $options = get_option( 'wpragbot_settings' );
         $key = isset( $options['supabase_key'] ) ? $options['supabase_key'] : '';
         echo '<input type="password" name="wpragbot_settings[supabase_key]" value="' . esc_attr( $key ) . '" class="regular-text" />';
+        echo '<p class="description">⚠️ Store this key in wp-config.php for enhanced security: <code>define(\'WPRAGBOT_SUPABASE_KEY\', \'your-key-here\');</code></p>';
     }
 
     public function qdrant_url_render() {
@@ -379,6 +452,7 @@ class Wpragbot_Admin {
         $options = get_option( 'wpragbot_settings' );
         $api_key = isset( $options['qdrant_api_key'] ) ? $options['qdrant_api_key'] : '';
         echo '<input type="password" name="wpragbot_settings[qdrant_api_key]" value="' . esc_attr( $api_key ) . '" class="regular-text" />';
+        echo '<p class="description">⚠️ Store this key in wp-config.php for enhanced security: <code>define(\'WPRAGBOT_QDRANT_API_KEY\', \'your-key-here\');</code></p>';
     }
 
     public function system_prompt_render() {

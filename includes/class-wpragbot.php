@@ -152,7 +152,8 @@ class Wpragbot {
         $this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
         $this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
         $this->loader->add_action( 'wp_ajax_wpragbot_chat', $plugin_public, 'handle_chat' );
-        $this->loader->add_action( 'wp_ajax_nopriv_wpragbot_chat', $plugin_public, 'handle_chat' );
+        // NOTE: Removed wp_ajax_nopriv_wpragbot_chat to require user authentication for chat
+        // $this->loader->add_action( 'wp_ajax_nopriv_wpragbot_chat', $plugin_public, 'handle_chat' );
         $this->loader->add_action( 'wp_footer', $plugin_public, 'display_chat_widget' );
         
         // Register shortcode
