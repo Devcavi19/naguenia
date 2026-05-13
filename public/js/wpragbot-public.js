@@ -124,12 +124,30 @@
                             $input.val('');
                             chatWidget.setStatus('Connected', false);
                         } else {
-                            chatWidget.showErrorWithRetry('Failed to get a valid response. Please try again.', message);
+                            // Show server error message if available
+                            var errorMsg = response.data && response.data.message ? response.data.message : 'Failed to get a valid response. Please try again.';
+                            chatWidget.showErrorWithRetry(errorMsg, message);
                         }
                     },
-                    error: function() {
+                    error: function(jqXHR, textStatus, errorThrown) {
                         chatWidget.removeTypingIndicator();
-                        chatWidget.showErrorWithRetry('Error: Failed to get response. This usually means network issue.', message);
+                        
+                        // Try to parse AJAX error response
+                        var errorMsg = 'Error: Failed to get response. Please check your connection and try again.';
+                        var statusCode = jqXHR.status;
+                        
+                        // Handle common HTTP status codes
+                        if (statusCode === 0 || textStatus === 'error') {
+                            errorMsg = 'Network error. Please check your internet connection.';
+                        } else if (statusCode === 400) {
+                            errorMsg = 'Invalid request. Please refresh and try again.';
+                        } else if (statusCode === 401 || statusCode === 403) {
+                            errorMsg = 'Authentication required. Please log in to use the chat.';
+                        } else if (statusCode === 500) {
+                            errorMsg = 'Server error. Please try again later.';
+                        }
+                        
+                        chatWidget.showErrorWithRetry(errorMsg, message);
                     },
                     complete: function() {
                         chatWidget.disableInput(false);

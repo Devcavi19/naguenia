@@ -183,6 +183,14 @@ class Wpragbot_Admin {
         );
 
         add_settings_field(
+            'wpragbot_allow_guest_chat',
+            'Allow Guest Chat',
+            array( $this, 'allow_guest_chat_render' ),
+            $this->plugin_name,
+            'wpragbot_chat_settings'
+        );
+
+        add_settings_field(
             'wpragbot_collection_name',
             'Qdrant Collection Name',
             array( $this, 'collection_name_render' ),
@@ -261,6 +269,13 @@ class Wpragbot_Admin {
         if ( isset( $input['system_prompt'] ) ) {
             $sanitized['system_prompt'] = wp_kses_post( $input['system_prompt'] );
             error_log('WPRAGBot Admin: System prompt updated - Length: ' . strlen( $sanitized['system_prompt'] ) . ' characters');
+        }
+
+        // Sanitize allow_guest_chat checkbox
+        if ( isset( $input['allow_guest_chat'] ) ) {
+            $sanitized['allow_guest_chat'] = (int) sanitize_text_field( $input['allow_guest_chat'] );
+        } else {
+            $sanitized['allow_guest_chat'] = 0;
         }
 
         if ( isset( $input['embedding_endpoint'] ) ) {
@@ -459,6 +474,13 @@ class Wpragbot_Admin {
         $options = get_option( 'wpragbot_settings' );
         $prompt = isset( $options['system_prompt'] ) ? $options['system_prompt'] : '';
         echo '<textarea name="wpragbot_settings[system_prompt]" rows="5" cols="50" class="large-text">' . esc_textarea( $prompt ) . '</textarea>';
+    }
+
+    public function allow_guest_chat_render() {
+        $options = get_option( 'wpragbot_settings' );
+        $allow_guest = isset( $options['allow_guest_chat'] ) ? (int) $options['allow_guest_chat'] : 0;
+        echo '<input type="checkbox" name="wpragbot_settings[allow_guest_chat]" value="1" ' . checked( $allow_guest, 1, false ) . ' />';
+        echo '<p class="description">Allow non-logged-in users (guests) to access the chatbot. If unchecked, only logged-in users can chat.</p>';
     }
 
     public function collection_name_render() {

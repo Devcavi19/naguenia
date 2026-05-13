@@ -151,9 +151,10 @@ class Wpragbot {
         $plugin_public = new Wpragbot_Public( $this->get_plugin_name(), $this->get_version() );
         $this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
         $this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
+        // Register AJAX handler for both authenticated and unauthenticated users
+        // Authentication is verified in handle_chat() method via nonce and login check
         $this->loader->add_action( 'wp_ajax_wpragbot_chat', $plugin_public, 'handle_chat' );
-        // NOTE: Removed wp_ajax_nopriv_wpragbot_chat to require user authentication for chat
-        // $this->loader->add_action( 'wp_ajax_nopriv_wpragbot_chat', $plugin_public, 'handle_chat' );
+        $this->loader->add_action( 'wp_ajax_nopriv_wpragbot_chat', $plugin_public, 'handle_chat' );
         $this->loader->add_action( 'wp_footer', $plugin_public, 'display_chat_widget' );
         
         // Register shortcode

@@ -88,10 +88,26 @@ class Wpragbot_Public {
      * @since    1.0.0
      */
     public function handle_chat() {
-        // ✅ SECURITY: Require authentication for chat access (unless explicitly allowed for guests)
-        // To allow unauthenticated access, administrators should set WPRAGBOT_ALLOW_GUEST_CHAT to true
-        if ( ! is_user_logged_in() && ! apply_filters( 'wpragbot_allow_guest_chat', false ) ) {
-            wp_send_json_error( array( 'message' => 'You must be logged in to use the chat.' ) );
+        // ✅ SECURITY: Check nonce first
+        if ( !isset( $_POST['nonce'] ) ) {
+            wp_send_json_error( array( 'message' => 'Security check failed - no nonce' ) );
+            return;
+        }
+
+        if ( !wp_verify_nonce( $_POST['nonce'], 'wpragbot_nonce' ) ) {
+            wp_send_json_error( array( 'message' => 'Security check failed - invalid nonce' ) );
+            return;
+        }
+
+        // ✅ SECURITY: Require authentication for chat access
+        // To allow unauthenticated (guest) access, add this filter in wp-config.php or functions.php:
+        // add_filter( 'wpragbot_allow_guest_chat', '__return_true' );
+        // OR enable "Allow Guest Chat" setting in WPRAGBot admin panel
+        $settings = get_option('wpragbot_settings');
+        $allow_guest = ( isset( $settings['allow_guest_chat'] ) && $settings['allow_guest_chat'] ) || apply_filters( 'wpragbot_allow_guest_chat', false );
+        
+        if ( ! is_user_logged_in() && ! $allow_guest ) {
+            wp_send_json_error( array( 'message' => 'You must be logged in to use the chat. Please log in to your WordPress account.' ) );
             return;
         }
 
@@ -111,14 +127,8 @@ class Wpragbot_Public {
         // --- End Enhanced Rate Limiting ---
 
         // Check if POST data exists
-        if ( !isset( $_POST['nonce'] ) || !isset( $_POST['message'] ) || !isset( $_POST['session_id'] ) ) {
+        if ( !isset( $_POST['message'] ) || !isset( $_POST['session_id'] ) ) {
             wp_send_json_error( 'Missing required parameters' );
-            return;
-        }
-
-        // Verify nonce
-        if ( !wp_verify_nonce( $_POST['nonce'], 'wpragbot_nonce' ) ) {
-            wp_send_json_error( 'Security check failed' );
             return;
         }
 
@@ -277,12 +287,24 @@ class Wpragbot_Public {
                             if (response.success) {
                                 shortcodeChat.addMessage(response.data.response, 'bot');
                             } else {
-                                shortcodeChat.addMessage('Error: ' + response.data, 'bot');
+                                var errorMsg = response.data && response.data.message ? response.data.message : 'Error: ' + (typeof response.data === 'string' ? response.data : 'Failed to process your message');
+                                shortcodeChat.addMessage(errorMsg, 'bot');
                             }
                         },
-                        error: function() {
+                        error: function(jqXHR, textStatus, errorThrown) {
                             $('.wpragbot-loading').parent().remove();
-                            shortcodeChat.addMessage('Error: Failed to get response', 'bot');
+                            var errorMsg = 'Error: Failed to get response. Please try again.';
+                            var statusCode = jqXHR.status;
+                            
+                            if (statusCode === 0 || textStatus === 'error') {
+                                errorMsg = 'Network error. Please check your internet connection.';
+                            } else if (statusCode === 401 || statusCode === 403) {
+                                errorMsg = 'Authentication required. Please log in to use the chat.';
+                            } else if (statusCode === 500) {
+                                errorMsg = 'Server error. Please try again later.';
+                            }
+                            
+                            shortcodeChat.addMessage(errorMsg, 'bot');
                         }
                     });
                 },
