@@ -88,7 +88,7 @@ class Wpragbot_Analytics {
             if (is_wp_error($user_msg_response) || $user_response_code !== 201) {
                 // Log the failure but do NOT return early — continue to write the bot message
                 // and analytics row so we don't lose data from a single transient failure.
-                error_log('WPRAGBot Analytics: Failed to write user message to Supabase — ' . (is_wp_error($user_msg_response) ? $user_msg_response->get_error_message() : 'HTTP ' . $user_response_code));
+                wpragbot_debug_log('WPRAGBot Analytics: Failed to write user message to Supabase — ' . (is_wp_error($user_msg_response) ? $user_msg_response->get_error_message() : 'HTTP ' . $user_response_code));
             }
 
             // 2. Write bot response to wpragbot_messages
@@ -107,7 +107,7 @@ class Wpragbot_Analytics {
 
             $bot_response_code = wp_remote_retrieve_response_code($bot_msg_response);
             if (is_wp_error($bot_msg_response) || $bot_response_code !== 201) {
-                error_log('WPRAGBot Analytics: Failed to write bot message to Supabase — ' . (is_wp_error($bot_msg_response) ? $bot_msg_response->get_error_message() : 'HTTP ' . $bot_response_code));
+                wpragbot_debug_log('WPRAGBot Analytics: Failed to write bot message to Supabase — ' . (is_wp_error($bot_msg_response) ? $bot_msg_response->get_error_message() : 'HTTP ' . $bot_response_code));
             }
 
             // 3. Write analytics summary row to wpragbot_analytics
@@ -132,19 +132,19 @@ class Wpragbot_Analytics {
 
             $analytics_response_code = wp_remote_retrieve_response_code($analytics_response);
             if (is_wp_error($analytics_response) || $analytics_response_code !== 201) {
-                error_log('WPRAGBot Analytics: Failed to write analytics to Supabase — ' . (is_wp_error($analytics_response) ? $analytics_response->get_error_message() : 'HTTP ' . $analytics_response_code));
+                wpragbot_debug_log('WPRAGBot Analytics: Failed to write analytics to Supabase — ' . (is_wp_error($analytics_response) ? $analytics_response->get_error_message() : 'HTTP ' . $analytics_response_code));
             } else {
-                error_log('WPRAGBot Analytics: Successfully wrote data to Supabase');
+                wpragbot_debug_log('WPRAGBot Analytics: Successfully wrote data to Supabase');
             }
 
             // Always also write to local DB as a secondary backup
             $this->track_chat_interaction_db($session_id, $user_message, $bot_response, $context);
 
-            error_log('WPRAGBot Analytics: All data successfully written to Supabase for session ' . $session_id);
+            wpragbot_debug_log('WPRAGBot Analytics: All data successfully written to Supabase for session ' . $session_id);
             return true;
 
         } catch (Exception $e) {
-            error_log('WPRAGBot: Supabase tracking error: ' . $e->getMessage());
+            wpragbot_debug_log('WPRAGBot: Supabase tracking error: ' . $e->getMessage());
             return $this->track_chat_interaction_db($session_id, $user_message, $bot_response, $context);
         }
     }
@@ -215,7 +215,7 @@ class Wpragbot_Analytics {
         );
 
         if ($user_result === false) {
-            error_log('WPRAGBot: Failed to store user message: ' . $wpdb->last_error);
+            wpragbot_debug_log('WPRAGBot: Failed to store user message: ' . $wpdb->last_error);
         }
 
         // Store bot response
@@ -231,7 +231,7 @@ class Wpragbot_Analytics {
         );
 
         if ($bot_result === false) {
-            error_log('WPRAGBot: Failed to store bot response: ' . $wpdb->last_error);
+            wpragbot_debug_log('WPRAGBot: Failed to store bot response: ' . $wpdb->last_error);
         }
 
         // Store analytics data
@@ -254,7 +254,7 @@ class Wpragbot_Analytics {
         );
 
         if ($analytics_result === false) {
-            error_log('WPRAGBot: Failed to store analytics: ' . $wpdb->last_error);
+            wpragbot_debug_log('WPRAGBot: Failed to store analytics: ' . $wpdb->last_error);
         }
 
         return true;
@@ -296,7 +296,7 @@ class Wpragbot_Analytics {
         ) );
 
         if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) !== 200 ) {
-            error_log( 'WPRAGBot Analytics: Supabase GET failed for ' . $url . ' — ' .
+            wpragbot_debug_log( 'WPRAGBot Analytics: Supabase GET failed for ' . $url . ' — ' .
                 ( is_wp_error( $response ) ? $response->get_error_message() : 'HTTP ' . wp_remote_retrieve_response_code( $response ) ) );
             return false;
         }
@@ -381,7 +381,7 @@ class Wpragbot_Analytics {
                 ? 0
                 : intval( array_sum( $bot_lengths ) / count( $bot_lengths ) );
 
-            error_log( 'WPRAGBot Analytics: get_chat_statistics served from Supabase (' . count( $rows ) . ' rows)' );
+            wpragbot_debug_log( 'WPRAGBot Analytics: get_chat_statistics served from Supabase (' . count( $rows ) . ' rows)' );
 
             return array(
                 'total_chats'              => $total_chats,
@@ -395,7 +395,7 @@ class Wpragbot_Analytics {
         }
 
         // ── Local DB fallback ────────────────────────────────────────────────
-        error_log( 'WPRAGBot Analytics: get_chat_statistics falling back to local DB' );
+        wpragbot_debug_log( 'WPRAGBot Analytics: get_chat_statistics falling back to local DB' );
         global $wpdb;
         $since_date = wp_date( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
 
@@ -465,12 +465,12 @@ class Wpragbot_Analytics {
             foreach ( $daily as $date => $count ) {
                 $result[] = array( 'date' => $date, 'count' => $count );
             }
-            error_log( 'WPRAGBot Analytics: get_usage_trends served from Supabase' );
+            wpragbot_debug_log( 'WPRAGBot Analytics: get_usage_trends served from Supabase' );
             return $result;
         }
 
         // ── Local DB fallback ────────────────────────────────────────────────
-        error_log( 'WPRAGBot Analytics: get_usage_trends falling back to local DB' );
+        wpragbot_debug_log( 'WPRAGBot Analytics: get_usage_trends falling back to local DB' );
         global $wpdb;
         $since_date = wp_date( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
         return $wpdb->get_results( $wpdb->prepare(
@@ -521,12 +521,12 @@ class Wpragbot_Analytics {
                 return strcmp( $b['created_at'], $a['created_at'] );
             } );
 
-            error_log( 'WPRAGBot Analytics: get_recent_sessions served from Supabase' );
+            wpragbot_debug_log( 'WPRAGBot Analytics: get_recent_sessions served from Supabase' );
             return array_slice( array_values( $sessions ), 0, $limit );
         }
 
         // ── Local DB fallback ────────────────────────────────────────────────
-        error_log( 'WPRAGBot Analytics: get_recent_sessions falling back to local DB' );
+        wpragbot_debug_log( 'WPRAGBot Analytics: get_recent_sessions falling back to local DB' );
         global $wpdb;
         return $wpdb->get_results( $wpdb->prepare(
             "SELECT session_id, MAX(created_at) as created_at, COUNT(id) as message_count FROM {$wpdb->prefix}wpragbot_messages GROUP BY session_id ORDER BY created_at DESC LIMIT %d",
@@ -556,7 +556,7 @@ class Wpragbot_Analytics {
 
         if ( $analytics_data === false ) {
             // Local DB fallback
-            error_log( 'WPRAGBot Analytics: export_data falling back to local DB' );
+            wpragbot_debug_log( 'WPRAGBot Analytics: export_data falling back to local DB' );
             global $wpdb;
             $since_date     = wp_date( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
             $analytics_data = $wpdb->get_results( $wpdb->prepare(
@@ -564,7 +564,7 @@ class Wpragbot_Analytics {
                 $since_date
             ), ARRAY_A );
         } else {
-            error_log( 'WPRAGBot Analytics: export_data served from Supabase (' . count( $analytics_data ) . ' rows)' );
+            wpragbot_debug_log( 'WPRAGBot Analytics: export_data served from Supabase (' . count( $analytics_data ) . ' rows)' );
         }
 
         if ( $format === 'json' ) {

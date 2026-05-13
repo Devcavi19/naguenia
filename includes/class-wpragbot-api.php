@@ -84,7 +84,7 @@ class Wpragbot_API {
             return $this->generate_response_with_messages($messages, $api_key, $ai_provider);
 
         } catch (Exception $e) {
-            error_log('WPRAGBot: Exception in generate_response: ' . $e->getMessage());
+            wpragbot_debug_log('WPRAGBot: Exception in generate_response: ' . $e->getMessage());
             return new WP_Error('api_error', 'Error generating response: ' . $e->getMessage());
         }
     }
@@ -158,7 +158,7 @@ class Wpragbot_API {
             ));
 
             if (is_wp_error($response)) {
-                error_log('WPRAGBot: AI API request failed: ' . $response->get_error_message());
+                wpragbot_debug_log('WPRAGBot: AI API request failed: ' . $response->get_error_message());
                 return new WP_Error('ai_request_failed', 'Failed to connect to AI provider');
             }
 
@@ -168,7 +168,7 @@ class Wpragbot_API {
             if ($response_code !== 200) {
                 $error_data = json_decode($response_body, true);
                 $error_message = isset($error_data['error']['message']) ? $error_data['error']['message'] : 'Unknown error';
-                error_log('WPRAGBot: AI API error (code ' . $response_code . '): ' . $error_message);
+                wpragbot_debug_log('WPRAGBot: AI API error (code ' . $response_code . '): ' . $error_message);
                 // ✅ SECURITY: Return generic error, never expose backend details to frontend
                 return new WP_Error('ai_api_error', 'An error occurred while generating a response', array('status' => $response_code));
             }
@@ -177,7 +177,7 @@ class Wpragbot_API {
             $data = json_decode($response_body, true);
             
             if (!isset($data['choices']) || !is_array($data['choices']) || empty($data['choices'])) {
-                error_log('WPRAGBot: Invalid AI API response structure: ' . substr($response_body, 0, 200));
+                wpragbot_debug_log('WPRAGBot: Invalid AI API response structure: ' . substr($response_body, 0, 200));
                 return new WP_Error('invalid_ai_response', 'Invalid response from AI provider');
             }
 
@@ -191,14 +191,14 @@ class Wpragbot_API {
             }
 
             if (empty($response_text)) {
-                error_log('WPRAGBot: Empty response from AI provider');
+                wpragbot_debug_log('WPRAGBot: Empty response from AI provider');
                 return new WP_Error('empty_response', 'Empty response from AI provider');
             }
 
             return trim($response_text);
 
         } catch (Exception $e) {
-            error_log('WPRAGBot: Exception in generate_response_with_messages: ' . $e->getMessage());
+            wpragbot_debug_log('WPRAGBot: Exception in generate_response_with_messages: ' . $e->getMessage());
             return new WP_Error('api_error', 'Error generating response: ' . $e->getMessage());
         }
     }
@@ -321,9 +321,9 @@ class Wpragbot_API {
             $response_code = wp_remote_retrieve_response_code($response);
             // Successful upsert returns 201 (insert) or 200 (update via merge-duplicates).
             if (is_wp_error($response) || !in_array($response_code, array(200, 201), true)) {
-                error_log('WPRAGBot: Failed to save session summary to Supabase — ' . (is_wp_error($response) ? $response->get_error_message() : 'HTTP ' . $response_code));
+                wpragbot_debug_log('WPRAGBot: Failed to save session summary to Supabase — ' . (is_wp_error($response) ? $response->get_error_message() : 'HTTP ' . $response_code));
             } else {
-                error_log('WPRAGBot: Successfully saved session summary to Supabase for session ' . $session_id . ' turn ' . $turn_count);
+                wpragbot_debug_log('WPRAGBot: Successfully saved session summary to Supabase for session ' . $session_id . ' turn ' . $turn_count);
             }
         }
         
@@ -441,9 +441,9 @@ class Wpragbot_API {
             $system_prompt = trim($settings['system_prompt'] ?? '');
             if (empty($system_prompt)) {
                 $system_prompt = $this->get_default_system_prompt();
-                error_log('WPRAGBot: Using default system prompt for greeting (admin setting was empty)');
+                wpragbot_debug_log('WPRAGBot: Using default system prompt for greeting (admin setting was empty)');
             } else {
-                error_log('WPRAGBot: Using custom system prompt from WordPress admin panel for greeting');
+                wpragbot_debug_log('WPRAGBot: Using custom system prompt from WordPress admin panel for greeting');
             }
 
             $final_messages = array();
@@ -478,11 +478,11 @@ class Wpragbot_API {
             );
 
             if (is_wp_error($response)) {
-                error_log('WPRAGBot: Response generation failed for greeting: ' . $response->get_error_message());
+                wpragbot_debug_log('WPRAGBot: Response generation failed for greeting: ' . $response->get_error_message());
                 return $response;
             }
 
-            error_log('WPRAGBot: Successfully generated greeting/conversational response with ' . count($history) . ' prior turns');
+            wpragbot_debug_log('WPRAGBot: Successfully generated greeting/conversational response with ' . count($history) . ' prior turns');
 
             return array(
                 'response'   => $response,
@@ -491,7 +491,7 @@ class Wpragbot_API {
             );
 
         } catch (Exception $e) {
-            error_log('WPRAGBot: Exception in generate_response_for_greeting: ' . $e->getMessage());
+            wpragbot_debug_log('WPRAGBot: Exception in generate_response_for_greeting: ' . $e->getMessage());
             return new WP_Error('greeting_response_error', 'Error generating greeting response: ' . $e->getMessage());
         }
     }
@@ -590,8 +590,8 @@ class Wpragbot_API {
      */
     public function process_chat_request($message, $session_id, $settings) {
         try {
-            error_log('WPRAGBot: Processing chat request - Session: ' . $session_id . ', Message: ' . substr($message, 0, 50));
-            error_log('WPRAGBot: Settings check - Provider: ' . (empty($settings['ai_provider']) ? 'MISSING' : $settings['ai_provider']) . 
+            wpragbot_debug_log('WPRAGBot: Processing chat request - Session: ' . $session_id . ', Message: ' . substr($message, 0, 50));
+            wpragbot_debug_log('WPRAGBot: Settings check - Provider: ' . (empty($settings['ai_provider']) ? 'MISSING' : $settings['ai_provider']) . 
                       ', Qdrant URL: ' . (empty($settings['qdrant_url']) ? 'MISSING' : $settings['qdrant_url']) . 
                       ', Collection: ' . (empty($settings['collection_name']) ? 'MISSING' : $settings['collection_name']) .
                       ', Supabase URL: ' . (empty($settings['supabase_url']) ? 'MISSING/EMPTY' : $settings['supabase_url']) .
@@ -601,7 +601,7 @@ class Wpragbot_API {
             $is_greeting_or_meta = $this->is_greeting_or_meta_query($message);
             
             if ($is_greeting_or_meta) {
-                error_log('WPRAGBot: Greeting/meta-query detected - skipping document search, using system prompt to generate response');
+                wpragbot_debug_log('WPRAGBot: Greeting/meta-query detected - skipping document search, using system prompt to generate response');
                 // For greetings and meta-questions, skip document search and go straight to LLM with custom system prompt
                 return $this->generate_response_for_greeting($message, $session_id, $settings);
             }
@@ -610,25 +610,25 @@ class Wpragbot_API {
             $query_embedding = $this->generate_embedding($message, $settings['api_key'], $settings['ai_provider'], 'retrieval_query');
 
             if (is_wp_error($query_embedding)) {
-                error_log('WPRAGBot: Embedding generation failed: ' . $query_embedding->get_error_message());
+                wpragbot_debug_log('WPRAGBot: Embedding generation failed: ' . $query_embedding->get_error_message());
                 return $query_embedding;
             }
             
-            error_log('WPRAGBot: Generated embedding with dimension: ' . count($query_embedding));
+            wpragbot_debug_log('WPRAGBot: Generated embedding with dimension: ' . count($query_embedding));
 
             // 2. Search for relevant documents in Qdrant
             $relevant_docs = $this->search_documents($query_embedding, $settings['qdrant_url'], $settings['collection_name'], $settings['qdrant_api_key']);
 
             if (is_wp_error($relevant_docs)) {
-                error_log('WPRAGBot: Document search failed: ' . $relevant_docs->get_error_message());
+                wpragbot_debug_log('WPRAGBot: Document search failed: ' . $relevant_docs->get_error_message());
                 return $relevant_docs;
             }
             
-            error_log('WPRAGBot: Retrieved ' . count($relevant_docs) . ' relevant documents');
+            wpragbot_debug_log('WPRAGBot: Retrieved ' . count($relevant_docs) . ' relevant documents');
 
             // 3. Construct context with relevant documents
             $context = $this->construct_context($relevant_docs);
-            error_log('WPRAGBot: Context length: ' . strlen($context) . ' characters');
+            wpragbot_debug_log('WPRAGBot: Context length: ' . strlen($context) . ' characters');
 
             // FIX (C2): Load conversation history BEFORE the empty-context guard.
             // Previously, history was only loaded after this guard — meaning any
@@ -658,7 +658,7 @@ class Wpragbot_API {
             // history at all, only then return the graceful fallback.
             // If history IS present, fall through to build a response from memory.
             if (empty($context) && empty($recent_messages) && !$summary) {
-                error_log('WPRAGBot: No context and no conversation history — returning fallback response');
+                wpragbot_debug_log('WPRAGBot: No context and no conversation history — returning fallback response');
                 return array(
                     'response'   => 'I\'m sorry, I don\'t have enough information to answer that question. Could you ask something related to Naga City Government services?',
                     'context'    => '',
@@ -670,9 +670,9 @@ class Wpragbot_API {
             $system_prompt = trim($settings['system_prompt'] ?? '');
             if (empty($system_prompt)) {
                 $system_prompt = $this->get_default_system_prompt();
-                error_log('WPRAGBot: Using default system prompt (admin setting was empty)');
+                wpragbot_debug_log('WPRAGBot: Using default system prompt (admin setting was empty)');
             } else {
-                error_log('WPRAGBot: Using custom system prompt from WordPress admin panel (length: ' . strlen($system_prompt) . ' chars)');
+                wpragbot_debug_log('WPRAGBot: Using custom system prompt from WordPress admin panel (length: ' . strlen($system_prompt) . ' chars)');
             }
 
             $final_messages = array();
@@ -714,11 +714,11 @@ class Wpragbot_API {
             );
 
             if (is_wp_error($response)) {
-                error_log('WPRAGBot: Response generation failed: ' . $response->get_error_message());
+                wpragbot_debug_log('WPRAGBot: Response generation failed: ' . $response->get_error_message());
                 return $response;
             }
             
-            error_log('WPRAGBot: Successfully generated response');
+            wpragbot_debug_log('WPRAGBot: Successfully generated response');
 
             // 7. Return the response
             return array(
@@ -728,7 +728,7 @@ class Wpragbot_API {
             );
 
         } catch (Exception $e) {
-            error_log('WPRAGBot: Exception in process_chat_request: ' . $e->getMessage());
+            wpragbot_debug_log('WPRAGBot: Exception in process_chat_request: ' . $e->getMessage());
             return new WP_Error('api_error', 'Error processing chat request: ' . $e->getMessage());
         }
     }
@@ -747,13 +747,13 @@ class Wpragbot_API {
     private function search_documents($query_embedding, $qdrant_url, $collection_name, $api_key) {
         $qdrant_url = trim( $qdrant_url );
         if ( empty( $qdrant_url ) || empty( $collection_name ) ) {
-            error_log( 'WPRAGBot: Missing Qdrant configuration - URL: ' . ( $qdrant_url ? 'set' : 'empty' ) . ', Collection: ' . ( $collection_name ? $collection_name : 'empty' ) );
+            wpragbot_debug_log( 'WPRAGBot: Missing Qdrant configuration - URL: ' . ( $qdrant_url ? 'set' : 'empty' ) . ', Collection: ' . ( $collection_name ? $collection_name : 'empty' ) );
             return new WP_Error( 'missing_qdrant_config', 'Qdrant URL and collection name are required' );
         }
 
         // ✅ SECURITY: Validate URL is external (not localhost/private IP) to prevent SSRF
         if ( ! filter_var( $qdrant_url, FILTER_VALIDATE_URL ) || ! wp_http_validate_url( $qdrant_url ) ) {
-            error_log( 'WPRAGBot: Invalid Qdrant URL provided.' );
+            wpragbot_debug_log( 'WPRAGBot: Invalid Qdrant URL provided.' );
             return new WP_Error( 'invalid_qdrant_url', 'Invalid Qdrant URL provided' );
         }
 
@@ -775,12 +775,12 @@ class Wpragbot_API {
             foreach ( $blocked_patterns as $pattern ) {
                 if ( strpos( $pattern, '/' ) === 0 ) {
                     if ( preg_match( $pattern, $host ) ) {
-                        error_log( 'WPRAGBot: SSRF attempt blocked - host matches private IP range: ' . $host );
+                        wpragbot_debug_log( 'WPRAGBot: SSRF attempt blocked - host matches private IP range: ' . $host );
                         return new WP_Error( 'invalid_qdrant_url', 'Qdrant URL must be external' );
                     }
                 } else {
                     if ( strtolower( $host ) === $pattern ) {
-                        error_log( 'WPRAGBot: SSRF attempt blocked - host: ' . $host );
+                        wpragbot_debug_log( 'WPRAGBot: SSRF attempt blocked - host: ' . $host );
                         return new WP_Error( 'invalid_qdrant_url', 'Qdrant URL must be external' );
                     }
                 }
@@ -788,7 +788,7 @@ class Wpragbot_API {
         }
 
         if (empty($query_embedding) || !is_array($query_embedding)) {
-            error_log('WPRAGBot: Invalid query embedding - is array: ' . (is_array($query_embedding) ? 'yes' : 'no') . ', count: ' . (is_array($query_embedding) ? count($query_embedding) : 0));
+            wpragbot_debug_log('WPRAGBot: Invalid query embedding - is array: ' . (is_array($query_embedding) ? 'yes' : 'no') . ', count: ' . (is_array($query_embedding) ? count($query_embedding) : 0));
             return new WP_Error('invalid_embedding', 'Valid query embedding is required');
         }
 
@@ -798,7 +798,7 @@ class Wpragbot_API {
         // Construct search endpoint
         $url = $qdrant_url . '/collections/' . urlencode($collection_name) . '/points/search';
         
-        error_log('WPRAGBot: Searching Qdrant at: ' . $url . ' with embedding dimension: ' . count($query_embedding));
+        wpragbot_debug_log('WPRAGBot: Searching Qdrant at: ' . $url . ' with embedding dimension: ' . count($query_embedding));
 
         $body = array(
             'vector' => $query_embedding,
@@ -817,7 +817,7 @@ class Wpragbot_API {
             $headers['api-key'] = $api_key;
         }
 
-        error_log('WPRAGBot: Request body: ' . wp_json_encode(array(
+        wpragbot_debug_log('WPRAGBot: Request body: ' . wp_json_encode(array(
             'vector_dimension' => count($query_embedding),
             'limit' => 3,
             'score_threshold' => 0.3,
@@ -831,23 +831,23 @@ class Wpragbot_API {
         ));
 
         if (is_wp_error($response)) {
-            error_log('WPRAGBot: Qdrant connection error: ' . $response->get_error_message());
+            wpragbot_debug_log('WPRAGBot: Qdrant connection error: ' . $response->get_error_message());
             return new WP_Error('qdrant_request_failed', 'Failed to connect to Qdrant: ' . $response->get_error_message());
         }
 
         $response_code = wp_remote_retrieve_response_code($response);
         $response_body = wp_remote_retrieve_body($response);
         
-        error_log('WPRAGBot: Qdrant response code: ' . $response_code);
+        wpragbot_debug_log('WPRAGBot: Qdrant response code: ' . $response_code);
         
         if ($response_code === 403 || $response_code === 401) {
-            error_log('WPRAGBot: Authentication failed - check Qdrant API key in plugin settings');
+            wpragbot_debug_log('WPRAGBot: Authentication failed - check Qdrant API key in plugin settings');
         }
 
         if ($response_code !== 200) {
             $error_data = json_decode($response_body, true);
             $error_message = isset($error_data['status']['error']) ? $error_data['status']['error'] : 'Unknown error';
-            error_log('WPRAGBot: Qdrant API error (code ' . $response_code . '): ' . $error_message);
+            wpragbot_debug_log('WPRAGBot: Qdrant API error (code ' . $response_code . '): ' . $error_message);
             // ✅ SECURITY: Return generic error message, never expose backend details
             return new WP_Error('qdrant_api_error', 'Error retrieving information', array('status' => $response_code));
         }
@@ -855,7 +855,7 @@ class Wpragbot_API {
         $data = json_decode($response_body, true);
 
         if (!isset($data['result']) || !is_array($data['result'])) {
-            error_log('WPRAGBot: Invalid Qdrant response structure: ' . substr($response_body, 0, 200));
+            wpragbot_debug_log('WPRAGBot: Invalid Qdrant response structure: ' . substr($response_body, 0, 200));
             return new WP_Error('invalid_qdrant_response', 'Invalid response from Qdrant API');
         }
 
@@ -871,7 +871,7 @@ class Wpragbot_API {
             }
             
             // Debug: Log score and content info for each document
-            error_log('WPRAGBot: Document score: ' . (isset($result['score']) ? $result['score'] : 'N/A') . ', Content length: ' . strlen($content));
+            wpragbot_debug_log('WPRAGBot: Document score: ' . (isset($result['score']) ? $result['score'] : 'N/A') . ', Content length: ' . strlen($content));
             
             $documents[] = array(
                 'id' => $result['id'],
@@ -881,7 +881,7 @@ class Wpragbot_API {
             );
         }
         
-        error_log('WPRAGBot: Retrieved ' . count($documents) . ' documents from Qdrant (threshold: 0.3)');
+        wpragbot_debug_log('WPRAGBot: Retrieved ' . count($documents) . ' documents from Qdrant (threshold: 0.3)');
 
         return $documents;
     }

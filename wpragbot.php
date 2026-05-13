@@ -37,6 +37,26 @@ if ( ! defined( 'WPINC' ) ) {
 define( 'WPRAGBOT_VERSION', '1.0.0' );
 
 /**
+ * Debug logging for NaguenIA
+ * Set to true to enable debug logging, false to disable
+ * @since 1.0.0
+ */
+define( 'WPRAGBOT_DEBUG', false );
+
+/**
+ * Helper function to conditionally log debug messages
+ * Only logs when WPRAGBOT_DEBUG is enabled
+ *
+ * @since    1.0.0
+ * @param    string    $message    The message to log
+ */
+function wpragbot_debug_log( $message ) {
+    if ( defined( 'WPRAGBOT_DEBUG' ) && WPRAGBOT_DEBUG ) {
+        error_log( $message );
+    }
+}
+
+/**
  * The code that runs during plugin activation.
  * This action is documented in includes/class-wpragbot-activator.php
  */

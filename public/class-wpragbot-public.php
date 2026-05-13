@@ -168,7 +168,7 @@ class Wpragbot_Public {
         $response = $api_handler->process_chat_request($message, $session_id, $settings);
 
         if (is_wp_error($response)) {
-            error_log( 'WPRAGBot: Chat handler error: ' . $response->get_error_message() );
+            wpragbot_debug_log( 'WPRAGBot: Chat handler error: ' . $response->get_error_message() );
             wp_send_json_error( 'Unable to generate a response at this time. Please try again later.' );
         } else {
             // Track the interaction in analytics

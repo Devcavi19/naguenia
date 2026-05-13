@@ -268,7 +268,7 @@ class Wpragbot_Admin {
         // Important: Use wp_kses_post for system_prompt to allow formatting but remove harmful tags
         if ( isset( $input['system_prompt'] ) ) {
             $sanitized['system_prompt'] = wp_kses_post( $input['system_prompt'] );
-            error_log('WPRAGBot Admin: System prompt updated - Length: ' . strlen( $sanitized['system_prompt'] ) . ' characters');
+            wpragbot_debug_log('WPRAGBot Admin: System prompt updated - Length: ' . strlen( $sanitized['system_prompt'] ) . ' characters');
         }
 
         // Sanitize allow_guest_chat checkbox
